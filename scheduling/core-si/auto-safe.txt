@@ -1,0 +1,73 @@
+# core-si AUTO_SAFE allowlist — keys eligible to auto-apply at close ONCE trusted (2x streak).
+# One KEY per line. Lines starting with # are comments. Membership here is necessary but
+# NOT sufficient: a key auto-applies only if it is BOTH in this file AND trusted
+# (si-fix-admission.py) AND has a registered deterministic applier in bin/core-si-close.sh.
+#
+# HARD FLOOR (never add): anything outward (sys-marker push, sys-baseline PUSH AND PULL —
+# see the scoping note at the bottom of this file, added 2026-08-26), anything
+# needing judgment (sys-brainlint, sys-memstale, sys-docpath real-ref fixes, si-notbind-*),
+# or any trust-root / behavioral-hook change. Admission earns past the SURFACING gate, never
+# past the OUTWARD/DESTRUCTIVE gate. Add one key at a time, deliberately.
+#
+# Admitted (one key per line; the reason each earned admission is recorded beside it):
+#
+recall-eval
+#   re-runs the recall benchmark. No API spend, no mutation of anything but a report file.
+#
+sys-embed
+#   ADMITTED 2026-08-26. The detector's own prescribed fix is "re-run embed". embed.py
+#   --incremental is IDEMPOTENT AND RESUMABLE by design — it batches and resumes, so re-running
+#   can only move rows from unembedded to embedded and cannot corrupt state by running twice.
+#   That property is what makes it safe to hand to a machine rather than a person. Goes through
+#   run-brain-update.sh so it inherits the brain-lock protocol, and detaches so a close never
+#   hangs on a peer holding that lock.
+#
+sys-marker
+#   ADMITTED 2026-08-26. Its applier ONLY CLEARS A MARKER IT HAS PROVEN STALE: it runs
+#   `sync-to-baseline.sh --check` (read-only, no Sentinel token, pushes nothing) and removes the
+#   marker only when the baseline reports 0 pending files. If anything is genuinely pending it
+#   does nothing and the item stays notify-only. It performs the "verify" half and the "clear if
+#   already pushed" half of the detector's own fix text and never the push. It must never grow
+#   into one — pushing is outward and belongs to the floor below.
+#
+sys-docpath-archival
+#   ADMITTED 2026-08-26. NOTE THE KEY: the SPLIT key, never the bare `sys-docpath`. The bare key's
+#   population includes the real-ref fixes the HARD FLOOR above reserves, and the key is the
+#   admission unit — admitting it would mark that reserved half auto-applied the moment the
+#   provable half was fixed. This key covers ONLY refs whose basename resolves to exactly one
+#   archive path, and whose citing doc is not a reviewer charter under .claude/agents/.
+#
+sys-brainlint-refresh
+#   ADMITTED 2026-08-26. NOTE THE KEY: the REFRESH key, never the bare `sys-brainlint`, which the
+#   HARD FLOOR above reserves. This one only regenerates a diagnostic report; it never edits memory
+#   content. Reconciling real gap-memory drift stays the bare key and stays Nick's.
+#
+si-detector-liveness
+#   ADMITTED 2026-08-26. Re-runs bin/si-objective.py, whose normal side effect is refreshing
+#   .claude/state/.si-liveness.json (plus a reversible local JSON queue write). The dominant firing
+#   cause is a never-run or stale stamp, which is purely mechanical. When probes are genuinely
+#   FAILING the applier returns None — the run happened, the item did not resolve, and claiming
+#   otherwise would mark a broken instrument fixed.
+#
+sys-memstale-proven
+#   ADMITTED 2026-08-26. NOTE THE KEY: the PROVEN key, never the bare `sys-memstale` which the HARD
+#   FLOOR above names. It writes the date of a commit that demonstrably touched a NON-STAMP line,
+#   never today's date, and a stamp-only commit can never be proof — that requirement is what stops
+#   the applier's own auto-committed write becoming the next cycle's evidence. The residual half
+#   (no stamp, or no proven edit) has no non-lying value to write and stays Nick's.
+#
+sys-baseline
+#   ADMITTED 2026-08-26, AND THIS IS THE ONE PLACE A WRITTEN "never" IS NARROWED — deliberately in
+#   the diff rather than quietly. The floor line above said "anything outward (… sys-baseline
+#   sync)". "Sync" meant the PUSH and the PULL, and both remain absolutely floored:
+#     · push — sync-to-baseline.sh:13 says PreToolUse cannot gate a push from subprocess context,
+#       so from a close hook it would be UNGATED outward, landing over four pullers and a fork.
+#     · pull — on the writer it rsyncs the OLDER baseline over unpushed shared edits. detect.sh's
+#       own 2026-08-04 note records this would have reverted a test fix committed 18 minutes
+#       earlier and deleted two archive dirs, on this Core.
+#   What is admitted is ONLY the verify-and-stamp half: prove the shared tree already identical via
+#   the read-only check, then append one local breadcrumb line. Exactly the same shape as sys-marker,
+#   whose push is floored while the key itself is admitted.
+#   The real enforcement is NOT this comment — it is the source-scan tests in
+#   bin/tests/test_appliers_are_safe.py: check 3 bans `git push`/`--force`/outward verbs outright,
+#   and check 3b requires every sync-script invocation to carry the read-only flag.

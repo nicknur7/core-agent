@@ -1,0 +1,53 @@
+{
+  "haiku": {
+    "candidate": "claude:haiku-4-5(subagent)",
+    "fileA": {
+      "json_valid": true,
+      "nodes": 12,
+      "edges": 8,
+      "reasoning_nodes": 5,
+      "excerpt_cov": 1.0
+    },
+    "fileB": {
+      "json_valid": true,
+      "nodes": 13,
+      "edges": 9,
+      "reasoning_nodes": 7,
+      "excerpt_cov": 1.0
+    }
+  },
+  "opus": {
+    "candidate": "claude:opus-4-8(subagent)",
+    "fileA": {
+      "json_valid": true,
+      "nodes": 9,
+      "edges": 7,
+      "reasoning_nodes": 2,
+      "excerpt_cov": 1.0
+    },
+    "fileB": {
+      "json_valid": true,
+      "nodes": 11,
+      "edges": 10,
+      "reasoning_nodes": 3,
+      "excerpt_cov": 1.0
+    }
+  },
+  "sonnet5": {
+    "candidate": "claude:sonnet-5(subagent)",
+    "fileA": {
+      "json_valid": true,
+      "nodes": 10,
+      "edges": 9,
+      "reasoning_nodes": 0,
+      "excerpt_cov": null
+    },
+    "fileB": {
+      "json_valid": true,
+      "nodes": 10,
+      "edges": 10,
+      "reasoning_nodes": 4,
+      "excerpt_cov": 1.0
+    }
+  }
+}

@@ -1,0 +1,50 @@
+# APPEND-ONLY TELEMETRY THAT THE LIVE SESSION WRITES NO MATTER WHAT A TEST DOES.
+#
+# ONE LIST, TWO CONSUMERS. bin/tests/run-all.sh (_STATE_NOISE, the LEAK digest) and
+# bin/tests/test_tests_do_not_write_live_state.py (state_digest) both digest .claude/state to answer
+# the same question — "did this run write into the live seat?" — and until 2026-08-13 they carried
+# DIFFERENT exclusion rules: the runner excluded three telemetry logs, the test excluded nothing.
+#
+# So the two disagreed about the same directory in the same run. Measured: a suite run reported
+# `ok=128 FAIL=0 LEAK=1` and, on the next run with the same ambient writes, `ok=127 FAIL=1 LEAK=1` —
+# the test tripping on files the runner had already ruled out as noise. Two implementations of one
+# rule is how they drift; this file is the rule.
+#
+# ONE BASENAME PER LINE, matched at the END of the path. Comments and blank lines ignored.
+#
+# THE BAR FOR ADDING A LINE IS HIGH, and there is a precedent for taking one OFF. `.peer-digest` was
+# excluded here once on the reasoning copied from the entries below — "real hooks derive their state
+# dir from their own location and cannot be redirected". That was FALSE for it specifically
+# (session-presence.py honours CLAUDE_PROJECT_DIR), and worse: test_presence_cache_freshness.py
+# deletes the live .peer-digest, writes a poisoned value, then writes garbage, and relies on its own
+# cleanup. Excluding it removed the only thing that would notice when that cleanup did not run —
+# blinding the detector BY CONSTRUCTION. It is not in this list, and it must not be added.
+#
+# A name belongs here ONLY if a live hook appends to it on ordinary session activity AND no test
+# writes it. Verify the second half before adding — core-finance verified exactly that for
+# gate-fires.log (writers: recall-gate.py, brain-recall-trigger.py, hooklog.py; no test).
+#
+# FAILS SAFE. If this file is missing or unreadable, both consumers exclude NOTHING, which reports
+# more leaks rather than fewer. The safe direction for a leak detector is to over-report.
+
+hook-events.log
+event-probe.log
+gate-fires.log
+
+# .delegation-run-<session, 16 chars> — delegation-gate.py's PreToolUse counter (added
+# 2026-08-31 with the hook itself). VERIFIED against the same bar as the three lines above:
+# a live hook (delegation-gate.py) increments it on every mechanical tool call of the RUNNING
+# session, no test references "delegation" anywhere in the repo (grep -rn delegation over
+# *.py/*.sh — zero hits outside the hook and this state file), and it is pure per-session
+# bookkeeping the hook deletes on its own next delegation, never read back by a downstream
+# consumer the way .sentinel-last-blocked is. Measured directly, not assumed: a run-all.sh
+# full-suite run reported LEAK=1 naming .delegation-run-e99659f7-db8a-43 while THIS session's
+# own tool calls (the ones fixing these three tests) were firing concurrently in the background
+# — a standalone re-run of test_tests_do_not_write_live_state.py with no concurrent session
+# activity came back clean (before==after) on the exact same seat.
+# The basename is NOT fixed the way the three lines above are — it carries the session id, a
+# different suffix every session — so this line is a REGEX, not a literal, and both consumers
+# must treat it as one (see ambient_names()/state_paths() in test_tests_do_not_write_live_state.py
+# and _STATE_NOISE's construction in run-all.sh, which already glued every line into an
+# alternation and only special-cased the literal dot).
+.delegation-run-[A-Za-z0-9-]*

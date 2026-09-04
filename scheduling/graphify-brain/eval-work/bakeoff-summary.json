@@ -1,0 +1,32 @@
+[
+  {
+    "candidate": "codex:gpt-5.6-luna",
+    "files": 2,
+    "json_valid_rate": 1.0,
+    "total_nodes": 31,
+    "reasoning_nodes": 9,
+    "avg_excerpt_cov": 1.0,
+    "total_cost": 0.0426,
+    "avg_sec": 54.4
+  },
+  {
+    "candidate": "codex:gpt-5.6-terra",
+    "files": 2,
+    "json_valid_rate": 1.0,
+    "total_nodes": 23,
+    "reasoning_nodes": 4,
+    "avg_excerpt_cov": 1.0,
+    "total_cost": 0.0841,
+    "avg_sec": 30.2
+  },
+  {
+    "candidate": "codex:gpt-5.6-sol",
+    "files": 2,
+    "json_valid_rate": 1.0,
+    "total_nodes": 34,
+    "reasoning_nodes": 11,
+    "avg_excerpt_cov": 1.0,
+    "total_cost": 0.5086,
+    "avg_sec": 71.1
+  }
+]

@@ -1,0 +1,916 @@
+{
+  "_comment": "SHARED hook registry — the universal source of truth for which hooks each Core registers. bin/reconcile-hooks.py joins this against each Core's identity.json hook_profile (role + overrides) to derive .claude/settings.json. scope: universal=every Core, puller=pull-only Cores (not the writer). sentinel:true = the security gate, managed in Phase 4 (unfreeze), skipped by the reconciler until then. Built 2026-07-09 from life's canonical wiring (Phases 2-3 of per-core-personalization plan).",
+  "hooks": [
+    {
+      "name": "event-probe",
+      "event": "InstructionsLoaded",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" InstructionsLoaded",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "MessageDisplay",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" MessageDisplay",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "reply-observer",
+      "event": "MessageDisplay",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/reply-observer.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "MessageDisplay — record violations in the FINAL reply text at zero cost. Replaces the measurement half of the post-reply Stop gates, which Nick banned as policy on 2026-08-06: enforcement must happen before the reply, and a Stop hook after the reply is sent is useless.",
+        "origin_ref": "2026-08-06 capability test: MessageDisplay SEES the streaming reply (64-415 char chunks, index+final) and CANNOT block it — a probe returning exit 2 on a sentinel chunk was ignored and the sentinel reached the terminal. So text-inspecting gates cannot be relocated pre-reply, only replaced. tasks/research/enforcement-layer-2026-08-05.md",
+        "guards": "Nothing — it cannot block on this event by construction. It MEASURES four mechanically-decidable claim classes (elapsed-time, system-state, fleet-wide, decision-attributed-to-Nick) and whether each was sourced by a tool call in its own turn. That per-reply denominator is the number the SI loop could never produce from blocks, because a false positive and a catch look identical to a gate measuring itself.",
+        "effect": "log-only",
+        "evidence": ".claude/state/reply-observations.jsonl (read with bin/reply-violations.py)"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "Notification",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" Notification",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "PostCompact",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" PostCompact",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "PostToolBatch",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" PostToolBatch",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "capability-usage-log",
+      "event": "PostToolUse",
+      "matcher": "Skill",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/capability-usage-log.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "capability-usage-log @ PostToolUse",
+        "guards": "A generated capability that cannot be retired because nothing counted its uses. skill_graduate.demote() reads this telemetry to retire a skill unused for 30 days, so a silent recorder makes retirement fail closed forever.",
+        "effect": "log-only",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "recall-satisfied",
+      "event": "PostToolUse",
+      "matcher": "Read|Grep|Glob|WebFetch|WebSearch|Bash|Agent|Task|Skill|mcp__core-brain__.*",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/recall-satisfied.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "recall-satisfied @ PostToolUse",
+        "guards": "The recall gate staying armed forever after recall has actually happened. Clears the marker ONLY on a real brain query, not any local read — the distinction that keeps the gate meaningful.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "PostToolUseFailure",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" PostToolUseFailure",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "PreCompact",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" PreCompact",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "adversarial-review-gate",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/adversarial-review-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "PreToolUse PREVENTION for a blast-radius action taken with no adversarial review. The Stop-event oracle only observes, by which point the migration already ran; artifact_typer.ORACLE_CATALOG scoped this redesign and left it unbuilt with never_promote=True.",
+        "origin_ref": "2026-08-05 enforcement-layer plan, tasks/research/enforcement-layer-2026-08-05.md",
+        "guards": "run-migrations / reconcile-hooks --apply / estate-sweep --apply / si-unify-cutover taken without sentinel-code or a Codex review in the same turn. Deliberately NOT push/sync — pretooluse-guard already sends those to Sentinel and double-gating is how a guard suite becomes noise. EFFECT IS log-only WHILE IN PHASE 1: the hook's MODE constant is \"shadow\", so it records would_block and exits 0. When MODE flips to \"block\" (only after Nick reads the log), this field must become 'block' — the registry states the CURRENT effect on a turn, not the intended one.",
+        "effect": "log-only",
+        "evidence": ".claude/state/review-gate-log.jsonl (opportunity + would_block)"
+      }
+    },
+    {
+      "name": "approval-gate",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/approval-gate.py\"",
+      "scope": "universal",
+      "retired": true,
+      "retired_reason": "2026-07-27: 24 blocks in 58 invocations (41%). Five patches deep and still matching text over meaning — it read 'dont stop until we have a perfectly working baseline' as a stop signal, arming against the broadest authorization in the session. the operator: 'i dont want that go bs gate anymore.' Implementation archived at .claude/hooks/archive/approval-gate.py.",
+      "intent": {
+        "origin": "approval-gate @ PreToolUse",
+        "guards": "Treating a redirect as approval — continuing to execute when Nick has said stop, wait, or no.",
+        "effect": "block",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "capability-usage-log",
+      "event": "PreToolUse",
+      "matcher": "Skill",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/capability-usage-log.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": " | PreToolUse registration made explicit 2026-07-30: it was live in settings.json but absent from the registry, so every reconcile --check reported it as EXTRA. It is kept rather than removed because PostToolUse alone has proven unreliable here — the hook dispatched ONCE in three days across at least nine real Skill calls, and skill_graduate.demote() reads this telemetry to retire unused skills, so it fails closed forever when the recorder is silent. PreToolUse fires before the skill runs and cannot be skipped by the skill erroring. event-probe will show which actually dispatch.",
+        "guards": "A generated capability that cannot be retired because nothing counted its uses. skill_graduate.demote() reads this telemetry to retire a skill unused for 30 days, so a silent recorder makes retirement fail closed forever.",
+        "effect": "log-only",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "casebook-write-gate",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/casebook-write-gate.py\"",
+      "timeout": 10,
+      "scope": "universal",
+      "intent": {
+        "origin": "casebook-write-gate @ PreToolUse (core-business #913, wired by life 2026-08-10)",
+        "guards": "S3: an access-log entry recording a write/create/send/schedule with no completion stamp — an entry for an action that never completed reads as evidence it happened. S4: a bare percentage in a steering file loaded on every prompt, which becomes a fact nobody can check (the shape that produced the 82% headline that later needed retracting). The only two FILE-SHAPED casebook items with no mechanism and no retirement history to undo.",
+        "effect": "block",
+        "origin_ref": "core-bus #912/#913 mechanism map; fire rate measured on real content before shipping — S3 0 refusals of 11 list lines, S4 0 of 1 percentage line",
+        "evidence": ".claude/state/hook-events.log"
+      }
+    },
+    {
+      "name": "friction-dispatch",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/friction-dispatch.py\" PreToolUse",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Phase E1 — work-shape learned artifacts fire at PreToolUse, INJECT-ONLY. friction_dispatch structurally refuses block-mode on this event because it is where the security trust root lives.",
+        "origin_ref": "2026-08-05 Phase E1; registration existed in settings.json but was MISSING from this registry, so reconcile-hooks --apply would have removed it and silently disabled work-shape firing. Found 2026-08-05 adding the adversarial-review-gate entry.",
+        "guards": "A learned procedure that should be offered before a mutating edit.",
+        "effect": "inject",
+        "evidence": ".claude/state/friction-action-log.jsonl"
+      }
+    },
+    {
+      "name": "learned-stopguard",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit|Task",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/learned-stopguard.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "learned-stopguard.py — PreToolUse hook. Proposal 1 of the resynth-surfaced",
+        "origin_ref": "bdf1752 2026-06-05 Session 2026-06-05 22:06 PDT: automated close via Stop hook",
+        "guards": "The PURE BARREL: a mutating tool call after an explicit halt signal with zero assistant text in the turn — editing straight through a 'stop' without a word of acknowledgement.",
+        "effect": "inject",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core)"
+      }
+    },
+    {
+      "name": "model-pin-gate",
+      "event": "PreToolUse",
+      "matcher": "Task|Agent|Workflow",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/model-pin-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "model-pin-gate @ PreToolUse",
+        "guards": "'That was supposed to be Sonnet.' Fan-outs INHERIT the session model, so an unpinned N-agent Agent/Task/Workflow call on an Opus session runs N Opus agents. The failure always happens at the call site, so the gate lives there.",
+        "effect": "block",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "pretooluse-guard",
+      "event": "PreToolUse",
+      "matcher": "Bash|WebFetch|mcp__apple-events__.*|mcp__claude_ai_Canva__.*|mcp__claude_ai_Google_Drive__.*|mcp__github__.*|mcp__playwright__.*",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/pretooluse-guard.sh\"",
+      "timeout": 15,
+      "scope": "universal",
+      "sentinel": true,
+      "intent": {
+        "origin": "pretooluse-guard @ PreToolUse",
+        "guards": "An outward-facing action (push, send, curl, protected read, state-mutating MCP) reaching the world without Sentinel review. TRUST ROOT — not autonomously tunable; changes require Nick's explicit confirmation from his own terminal.",
+        "effect": "block",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "recall-before-grep",
+      "event": "PreToolUse",
+      "matcher": "Grep|Glob|Bash",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/recall-before-grep.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "PreToolUse — makes brain recall the DEFAULT for reconstructing past context.",
+        "origin_ref": "e31959f 2026-07-12 Core OS Phase 2+: make brain recall the DEFAULT, not just a pre-mutation gate",
+        "guards": "Grepping session transcripts for history the brain already holds and answers better.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      }
+    },
+    {
+      "name": "recall-first-gate",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/recall-first-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "recall-first-gate @ PreToolUse",
+        "guards": "Editing files before recalling what was already decided. Refuses mutating tools while brain-recall-trigger's .recall-required marker stands, so the turn's first move is a read.",
+        "effect": "block",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "shared-write-guard",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/shared-write-guard.py\"",
+      "timeout": 5,
+      "scope": "puller",
+      "intent": {
+        "origin": "shared-write-guard @ PreToolUse",
+        "guards": "The clobber loop: a non-writer Core edits a baseline-SHARED file, it looks fixed, then the next /sync pull silently overwrites it because baseline wins.",
+        "effect": "block",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "stay-scoped",
+      "event": "PreToolUse",
+      "matcher": "mcp__peer-.*",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/stay-scoped.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "stay-scoped @ PreToolUse",
+        "guards": "Reflexive cross-Core fishing. Nick's 'stay scoped to the current Core' ask recurred 8x in corrections; this fires it at the moment it matters, right before a peer-Core MCP read, rather than as prose in CLAUDE.md.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "task-brief-reminder",
+      "event": "PreToolUse",
+      "matcher": "Task",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/task-brief-reminder.sh\"",
+      "timeout": 10,
+      "scope": "universal",
+      "intent": {
+        "origin": "task-brief-reminder @ PreToolUse",
+        "guards": "Dispatching a subagent without the constraints that have each cost 100K+ tokens when forgotten — the 8-agent sandbox failure, subagent input poisoning, briefs with no tool allowlist.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "tracking-orphan-guard",
+      "event": "PreToolUse",
+      "matcher": "Write",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/tracking-orphan-guard.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "tracking-orphan-guard @ PreToolUse",
+        "guards": "Tracker sprawl. Blocks NEW tracking-shape files (backlog, queue, dashboard, registry, todo…) that nothing references — the operator does not want dozens of trackers.",
+        "effect": "block",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "defensive-save",
+      "event": "SessionEnd",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/defensive-save.sh\"",
+      "timeout": 60,
+      "scope": "universal",
+      "intent": {
+        "origin": "defensive-save @ SessionEnd",
+        "guards": "Losing a session's work when Nick exits without /close-core — /exit, a closed terminal, or /clear. Commits and stamps current-state so nothing is lost; the full close (reconciler, prune) still requires the explicit command.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "friction-watchdog",
+      "event": "SessionStart",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/friction-watchdog.py\"",
+      "timeout": 10,
+      "scope": "universal",
+      "intent": {
+        "origin": "friction-watchdog @ SessionStart",
+        "guards": "A misbehaving artifact staying live. Sweeps at SessionStart, quarantines and restores the prior snapshot — the reversibility half of 'autonomous means test-gate plus reversibility, not a human approval gate'.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "learned-resynth-trigger",
+      "event": "SessionStart",
+      "matcher": "",
+      "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/learned-resynth-trigger.sh\"",
+      "timeout": 20,
+      "scope": "universal",
+      "intent": {
+        "origin": "learned-resynth-trigger @ SessionStart",
+        "guards": "Contracts going stale as the correction corpus grows past them. Also retired at the 07-23 cutover and gated off by the .si-unified-spine marker.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "session-start-check",
+      "event": "SessionStart",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-check.sh\"",
+      "timeout": 15,
+      "scope": "universal",
+      "intent": {
+        "origin": "session-start-check @ SessionStart",
+        "guards": "Starting a session on stale state — an unclean previous close, stale memory files, a pending extraction — and never being told.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "sync-from-baseline",
+      "event": "SessionStart",
+      "matcher": "",
+      "command": "bash \"$CLAUDE_PROJECT_DIR/bin/sync-from-baseline.sh\" --quiet",
+      "timeout": 30,
+      "scope": "puller",
+      "order": "first",
+      "intent": {
+        "origin": "sync-from-baseline @ SessionStart",
+        "guards": "A pull-only Core drifting from the baseline because nobody ran the sync. Runs it at SessionStart so shared code is current without Nick doing anything.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "cross-core-completion-gate",
+      "event": "Stop",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/cross-core-completion-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Stop hook — cross-Core completion gate. Blocks a response that declares a",
+        "origin_ref": "0c0116b 2026-07-11 brain-lint: fix silent-empty-brain garbage + build cross-core-completion gate",
+        "guards": "Claiming work is done or in sync ACROSS all Cores without reading a peer Core to check.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "Replaced by SUPPLY: session-presence injects a PEERS digest (each peer's HEAD + last-synced baseline), making an 'all Cores' claim checkable from context. OBSERVE class: cross_core_claim. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "decision-attribution-gate",
+      "event": "Stop",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/decision-attribution-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Stop hook — decision-attribution gate. Extends state-claim-gate (rule #1)",
+        "origin_ref": "56f00a0 2026-07-11 Housekeeping: clear SI queue + carried items; 2 new Stop-gates; extract-pending fork-remnant fix",
+        "guards": "Attributing a decision to Nick without evidence from the decisions log or brain.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "OBSERVE class decision_attribution records it at zero cost; recall-first-gate covers the pre-emptive half. No supply is possible — attributing a decision needs the specific record read, which cannot be pre-injected cheaply. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "deliverable-format-gate",
+      "event": "Stop",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/deliverable-format-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Stop hook — deliverable-format gate (ops resynth proposal #4, 2026-07-19).",
+        "origin_ref": "ed1e990 2026-07-23 Session 2026-07-23 15:24 PDT: automated close via Stop hook",
+        "guards": "Answering a request for something Nick will VIEW with pasted chat text instead of a clickable artifact.",
+        "effect": "inject",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "OBSERVE class deliverable_format — describing something the operator will VIEW while pasting it as chat text, sourced by an actual Write/Artifact/SendUserFile. Also added 2026-08-06 for the same reason. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "financial-figure-gate",
+      "event": "Stop",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/financial-figure-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Stop hook — financial-figure gate. Blocks outbound text that asserts a live",
+        "origin_ref": "56f00a0 2026-07-11 Housekeeping: clear SI queue + carried items; 2 new Stop-gates; extract-pending fork-remnant fix",
+        "guards": "Asserting a specific account balance or holding without pulling the live figure this turn.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "OBSERVE class financial_figure — a currency amount with no live account read in the same turn. Also added 2026-08-06 after sentinel-code found the boilerplate reason claimed coverage that did not exist. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "friction-dispatch",
+      "event": "Stop",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/friction-dispatch.py\" Stop",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "friction-dispatch @ Stop",
+        "guards": "Learned artifacts existing in the database but never reaching a turn. This is the ONE static interpreter for si_artifacts — without it the whole self-improvement spine is inert no matter how good its output.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      },
+      "retired": true,
+      "retired_reason": "Stop registration RETIRED 2026-08-06 under the operator's policy that nothing may drive the agent after the reply is sent. friction-dispatch keeps its UserPromptSubmit and PreToolUse registrations — only the post-reply one goes. What it did on Stop: compute the two real oracles and fire exactly ONE artifact, art_bf54388 (blast-radius action with no adversarial review), in shadow. That artifact is never_promote by design because a Stop block cannot prevent a push that already ran — its own catalog entry says 'Prevention belongs at PreToolUse'. That prevention now EXISTS as the hand-written adversarial-review-gate.py, so the Stop observation is redundant rather than merely banned: the same condition is checked before the command executes instead of after the reply is read."
+    },
+    {
+      "name": "learned-recallguard",
+      "event": "Stop",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/learned-recallguard.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "learned-recallguard.py — Stop hook. Proposal 2 of the resynth-surfaced blocking",
+        "origin_ref": "bdf1752 2026-06-05 Session 2026-06-05 22:06 PDT: automated close via Stop hook",
+        "guards": "Answering about prior context without recalling it, in the zero-tool corner recall-gate cannot see. Legacy-layer; retires at fleet cutover.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core)"
+      },
+      "retired": true,
+      "retired_reason": "Same replacement as recall-gate: recall-first-gate at PreToolUse. This was the legacy learned-layer twin of it and blocked at Stop. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "learned-validator",
+      "event": "Stop",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/learned-validator.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "learned-validator.py — Stop hook. The BLOCKING half of the learned-workflow layer.",
+        "origin_ref": "8865887 2026-06-05 Unfreeze + ship the learned-workflow interpretation layer",
+        "guards": "Same halt-signal case as learned-stopguard but caught at Stop, where there ARE words but no acknowledgement. Reads the retired learned_contracts table; overridden OFF on life since 2026-07-30.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core)"
+      }
+    },
+    {
+      "name": "recall-gate",
+      "event": "Stop",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/recall-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "recall-gate — Stop hook (B1 part b, 2026-06-08). THE structural \"go look at the brain.\"",
+        "origin_ref": "272eaf4 2026-06-08 Recall-grounding layer: C1 trigger markers + binding gates (built, unwired)",
+        "guards": "Answering a question about prior sessions from context instead of querying the brain.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "Replaced by recall-first-gate (PreToolUse), which already refuses a mutating edit until a real brain query has run — before the claim exists rather than after. OBSERVE class: decision_attribution covers the attribution half. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "say-do-gap",
+      "event": "Stop",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/say-do-gap.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Stop hook — detects \"say/do gap\" in the just-finished assistant message.",
+        "origin_ref": "8c16c6d 2026-05-14 Engine split surgery — initial instance commit",
+        "guards": "Claiming an action was or will be taken without performing it in the same turn — 'I'll save that' with no Write.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "OBSERVE class say_do_gap — promise language in the reply with no mutating tool call in the turn. Added to the observer 2026-08-06 AFTER sentinel-code found this gate had been retired with no coverage at all; it is one of the three original anti-patterns in CLAUDE.base.md, so retiring it uncovered would have been the worst of the nine. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "state-claim-gate",
+      "event": "Stop",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/state-claim-gate.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Stop hook — detects \"state-claim from memory\" in the just-finished",
+        "origin_ref": "8c16c6d 2026-05-14 Engine split surgery — initial instance commit",
+        "guards": "Asserting the state of a file, hook or system from memory instead of reading it in the same turn.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "OBSERVE class state_claim. No supply is possible: an arbitrary system-state assertion needs the specific file read. This is PRE-EMPT territory (PostToolBatch) and is explicitly NOT yet covered there — the observation exists so the gap is measured rather than assumed away. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "stop-hook",
+      "event": "Stop",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-hook.sh\"",
+      "timeout": 60,
+      "scope": "universal",
+      "intent": {
+        "origin": "stop-hook @ Stop",
+        "guards": "A queued /close-core never executing. Thin shim over the one lifecycle controller; instant no-op unless the .end-session-requested sentinel is present.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "time-claim-gate",
+      "event": "Stop",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/time-claim-gate.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Stop hook — detects time/duration claims made without a same-turn time-source",
+        "origin_ref": "3030c1f 2026-05-15 Time-awareness + path-drift structural fixes",
+        "guards": "Stating a time, duration or time-of-day without sourcing it from a clock call this turn.",
+        "effect": "block",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      },
+      "retired": true,
+      "retired_reason": "Replaced by SUPPLY: session-presence now injects START + WALL every turn, so an elapsed claim is answerable from context and needs no tool call. The clock already covered 'what time is it'; this covers 'how much has passed', which is what this gate actually caught (11 of 22 blocks in one session). OBSERVE class: duration_claim. | Policy basis: operator directive 2026-08-06, no hook may drive the agent after the reply is sent. time-claim-gate.py:369 — 'a Stop block is a continuation' — so the flawed text AND the correction both reached him; these never prevented what they existed to prevent."
+    },
+    {
+      "name": "event-probe",
+      "event": "StopFailure",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" StopFailure",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "SubagentStart",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" SubagentStart",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "reconcile-subagent-receipt",
+      "event": "SubagentStop",
+      "matcher": "close-reconciler",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/reconcile-subagent-receipt.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "reconcile-subagent-receipt @ SubagentStop",
+        "guards": "A forged close receipt — reconcile-receipt.py writing a receipt when close-reconciler never actually ran. The un-forgeable link in that chain.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "sentinel-receipt",
+      "event": "SubagentStop",
+      "matcher": "sentinel",
+      "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/sentinel-receipt.sh\"",
+      "scope": "universal",
+      "timeout": 10,
+      "intent": {
+        "origin": "sentinel-receipt @ SubagentStop",
+        "guards": "A Sentinel verdict being claimed without Sentinel having run. Parses the real verdict from the subagent's output and mints the receipt the guard checks.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "sentinel-receipt",
+      "event": "SubagentStop",
+      "matcher": "sentinel-code",
+      "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/sentinel-receipt.sh\"",
+      "scope": "universal",
+      "timeout": 10,
+      "intent": {
+        "origin": "sentinel-receipt @ SubagentStop",
+        "guards": "A Sentinel verdict being claimed without Sentinel having run. Parses the real verdict from the subagent's output and mints the receipt the guard checks.",
+        "effect": "side-effect",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "event-probe",
+      "event": "UserPromptExpansion",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/event-probe.py\" UserPromptExpansion",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "Observer probe (2026-07-30). Core registers 7 event types; the API documents ~30. Nick asked that every aspect of a turn be used where it needs to be — this measures which events this harness ACTUALLY dispatches before anything is ported to one.",
+        "origin_ref": "master plan Phase 1 / tasks/research/hook-event-coverage-2026-07-30.md build-implication 1",
+        "guards": "Porting a gate to an event that never fires. capability-usage-log was registered for three days and dispatched once across nine real Skill calls — registration is not dispatch, and only measurement tells them apart.",
+        "effect": "log-only",
+        "evidence": ".claude/state/event-probe.log — read with bin/event-coverage.py"
+      }
+    },
+    {
+      "name": "approval-gate",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/approval-gate.py\"",
+      "scope": "universal",
+      "retired": true,
+      "retired_reason": "See PreToolUse entry.",
+      "intent": {
+        "origin": "approval-gate @ UserPromptSubmit",
+        "guards": "Treating a redirect as approval — continuing to execute when Nick has said stop, wait, or no.",
+        "effect": "block",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "auto-trigger-suggest",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/auto-trigger-suggest.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "UserPromptSubmit hook — auto-trigger tier MVP (Phase 6, 2026-06-27). LOG-ONLY SHADOW.",
+        "origin_ref": "779037c 2026-06-27 Phase 6 (shadow): auto-trigger tier MVP — design-swing detector, log-only",
+        "guards": "Starting design or rework without offering the deep-plan loop that the situation calls for.",
+        "effect": "inject",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      }
+    },
+    {
+      "name": "brain-recall-trigger",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-recall-trigger.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "UserPromptSubmit hook — detects references to known people, projects,",
+        "origin_ref": "4cd07df 2026-05-15 Session 2026-05-15 17:56 PDT: automated close via Stop hook",
+        "guards": "Responding about a named person or project without consulting the brain, where the brain holds history the local files do not.",
+        "effect": "inject",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      }
+    },
+    {
+      "name": "friction-dispatch",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/friction-dispatch.py\" UserPromptSubmit",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "friction-dispatch @ UserPromptSubmit",
+        "guards": "Learned artifacts existing in the database but never reaching a turn. This is the ONE static interpreter for si_artifacts — without it the whole self-improvement spine is inert no matter how good its output.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "friction-runner",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/friction-runner.py\"",
+      "timeout": 15,
+      "scope": "universal",
+      "intent": {
+        "origin": "friction-runner @ UserPromptSubmit (GAP A-executable-effect, 2026-08-31)",
+        "guards": "A run_action artifact whose trigger fired but whose script never ran because nothing drains friction-dispatch's run-queue.jsonl — the exact 'inert workflow_proposal wearing JSONL' failure the design that preceded this one was disqualified for.",
+        "effect": "side-effect",
+        "origin_ref": "judge requirement 1: UserPromptSubmit ONLY, PreToolUse explicitly withheld pending Nick's sign-off (friction_dispatch.py's own PreToolUse-block-refusal comment reserves that posture call for him). Registered as a SEPARATE hook from friction-dispatch, deliberately: out-of-process, so an action's success/failure can never feed back into the firing decision. EFFECT CLASSIFIED side-effect, NOT a new 'run' kind (2026-08-31 fix): checked the other 8 side-effect hooks first, per test_intent_coverage's own instruction — sync-from-baseline@SessionStart is already classified side-effect and its whole job is to invoke an external script (bash bin/sync-from-baseline.sh), which is the identical shape of action this hook performs (spawn a catalog-pinned script). 'run' would have been a second word for the same thing side-effect already names ('does something beyond injecting text'), which VALID_EFFECTS' own closed vocabulary and steering_liveness's no-effect/side-effect split were built to cover — not a genuinely uncovered case.",
+        "evidence": ".claude/state/friction-artifacts/run-receipts.jsonl + friction-action-log.jsonl (run_enqueued / run_fired / run_action_quarantine rows)"
+      }
+    },
+    {
+      "name": "learned-classifier",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/learned-classifier.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "learned-classifier @ UserPromptSubmit",
+        "guards": "Repeating a correction Nick has already made, when a learned contract covers it. RETIRED at the 2026-07-23 SI-spine cutover — the friction engine is now the sole injector; kept registered only until the fleet migrates.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "rot-check",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/rot-check.py\"",
+      "timeout": 10,
+      "scope": "universal",
+      "intent": {
+        "origin": "rot-check @ UserPromptSubmit",
+        "guards": "Silent mid-session quality decay. Computes Core-ASI v2 over the last 50 assistant turns and re-anchors the single dragging dimension when the session drops below tau. Fires once per session.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "session-presence",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-presence.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "session-presence @ UserPromptSubmit",
+        "guards": "Resuming after a step-away and continuing from a stale in-context thread rather than what is current. Also supplies the live clock every turn (Phase 1.1), which is what makes most time-claim blocks impossible rather than caught.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    },
+    {
+      "name": "stop-signal-gate",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-signal-gate.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "stop-signal-gate.py — UserPromptSubmit hook.",
+        "origin_ref": "baa8297 2026-05-31 Session 2026-05-31 22:59 PDT: automated close via Stop hook",
+        "guards": "Continuing a prior plan after Nick has redirected, corrected or expressed frustration.",
+        "effect": "inject",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      }
+    },
+    {
+      "name": "verification-trigger",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/verification-trigger.sh\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "UserPromptSubmit hook — detects verification triggers in Nick's prompt",
+        "origin_ref": "8c16c6d 2026-05-14 Engine split surgery — initial instance commit",
+        "guards": "Answering a 'go look at X' request from memory instead of reading X first.",
+        "effect": "inject",
+        "evidence": ".claude/state/hook-intent-evidence.json (per-Core, never synced)"
+      }
+    },
+    {
+      "name": "preempt-gate",
+      "event": "PostToolBatch",
+      "matcher": "",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/preempt-gate.py\" PostToolBatch",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "reply-observer.py names five claim classes for which no cheap per-turn supply is possible, and writes in its own comments: 'These are the classes the PRE-EMPT layer (PostToolBatch) has to cover.' That layer did not exist, so those classes were counted and nothing more. Built 2026-08-25 when financial_figure cleared the work-order threshold on core-life: 10 unsourced claims across 826 observed replies (1.21/100) over a fully-covered window.",
+        "origin_ref": ".claude/state/oracle-request-queue.json -> preempt_financial_figure (verdict OBSERVED-VIOLATION-RATE, recommended_action write_preempt_hook, must_be_handwritten true)",
+        "guards": "An unsourced account figure reaching Nick. His rule has no exceptions: an account figure is pulled live, never recalled. Fires BEFORE the reply is composed so a missing read can still be supplied rather than punished. Stop and MessageDisplay were both ruled out in the queue file - Stop because a post-reply gate cannot prevent anything (Nick 2026-08-04; the nine Stop gates were retired 2026-08-06 for exactly that), MessageDisplay because it provably cannot block.",
+        "effect": "inject",
+        "evidence": ".claude/state/preempt-gate.log",
+        "verified": "PostToolBatch's injection authority was TESTED on 2026-08-25 with a sentinel probe, not read from docs - the sentinel arrived in-session with no restart. Blocking at this event was NOT tested and is NOT claimed; this hook never blocks and always exits 0. Sourcing is not re-implemented here: it imports reply-observer's own _SOURCE_TOOLS and _turn_tool_blob, so prevention stays commensurable with measurement, and it goes silent if that import fails rather than forming a second opinion.",
+        "inert_rows": "decision_attribution and say_do_gap ship declared-but-inactive. Both are named by the observer as pre-empt territory; neither has cleared the >=3-absolute and >=1.0/100 threshold on this seat. Flip active only when the oracle queue says so - the threshold is what makes a row a work order rather than an opinion."
+      }
+    },
+    {
+      "name": "delegation-gate",
+      "event": "PreToolUse",
+      "matcher": "*",
+      "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/delegation-gate.py\"",
+      "timeout": 5,
+      "scope": "universal",
+      "intent": {
+        "origin": "delegation-gate @ PreToolUse",
+        "guards": "Grinding large parallelisable work inline instead of fanning it out. subagents.md has said 'spawn a subagent for independent parallelizable work' since it was written and loads every session; measured 454 mined observations mention delegation or model routing, and the ask still recurred. The measured shape of the miss: delegation happens when work looks RISKY, not when it is merely LARGE.",
+        "effect": "inject",
+        "origin_ref": "intent backfilled 2026-07-30, master plan Phase 2.1",
+        "evidence": ".claude/state/hook-events.log + steering_events"
+      }
+    }
+  ]
+}

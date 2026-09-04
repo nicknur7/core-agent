@@ -1,0 +1,66 @@
+# Root pyproject for Core. Created 2026-05-28 (Phase 4, spec-brain-unfreeze).
+#
+# Why: install-deps.sh runs `pip install -e ".[graphify,playwright]"`, but the repo
+# shipped NO root pyproject — so that editable install was a silent no-op and core
+# deps (networkx, google-api-python-client, anthropic) + the brain deps were never
+# declared anywhere. Fresh forks hit ModuleNotFoundError (seen on an external fork, 2026-05-26). This
+# declares them so `make setup-brain` / install-deps.sh stand a fork up from zero.
+#
+# Not structured as an importable package (scripts live under bin/, scheduling/);
+# the editable install exists to resolve dependencies, not to expose modules.
+# Versions intentionally unpinned (floor-free) — Core is a personal toolchain on a
+# rolling Python; pin later if a fork needs reproducibility.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "core"
+version = "0.1.0"
+description = "Core — self-hosted personal agent runtime (hooks, brain pipeline, scheduling)."
+requires-python = ">=3.9"
+dependencies = [
+  "anthropic",                 # subagent / API paths
+  "google-api-python-client",  # gmail + drive automations
+  "google-auth",
+  "google-auth-oauthlib",
+  "requests",
+]
+
+[project.optional-dependencies]
+# Brain pipeline: Stop-hook embed pass + query.py recall + compile-truth.
+# Mirrors the explicit pip install in install-deps.sh so it also resolves via extras.
+brain = [
+  "psycopg2-binary",
+  "pgvector",
+  "voyageai",
+  "flashrank",
+  "numpy",
+  # The MCP SDK: bin/peer-mcp-server.py and scheduling/brain-pg/mcp-server.py both `import mcp`
+  # and nothing declared it, so a complete install left both servers dead on arrival. Found by
+  # importing every shipped module after a clean install — not by reading anything. The
+  # .mcp.json.template invokes them through `uv run --with mcp`, which is why it never bit the
+  # author: uv fetched it at launch and the omission was invisible from a seat that had uv.
+  "mcp",
+]
+# Graph build (merge.py + make-2d/3d + community detection).
+graphify = [
+  "networkx",
+  "python-louvain",
+  "numpy",
+]
+# Browser automation (OSU Outlook, Canvas, gdrive).
+playwright = [
+  "playwright",
+]
+# Everything — for a full from-zero bootstrap (what make setup-brain installs).
+all = [
+  "psycopg2-binary", "pgvector", "voyageai", "flashrank", "numpy",
+  "networkx", "python-louvain",
+  "playwright",
+]
+
+[tool.setuptools]
+# Dependency-only install — no importable packages shipped from the repo root.
+py-modules = []

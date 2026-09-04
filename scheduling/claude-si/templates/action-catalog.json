@@ -1,0 +1,12 @@
+{
+  "log_only_ping": {
+    "action_id": "log_only_ping",
+    "outward_declared": false,
+    "script": "bin/actions/log-only-ping.sh",
+    "script_sha256": "473cab30dc0390f015aed881fb7f1eb063459e24faddb13e0ab67d7628b3c43b",
+    "timeout_sec": 5,
+    "max_fires_per_session": 1,
+    "max_fires_per_week": 5,
+    "description": "Appends one timestamped line to .claude/state/friction-artifacts/run-receipts-script.log. No network, no git, no email/SMS, no write outside .claude/state. Proves the run-mode lifecycle end to end."
+  }
+}

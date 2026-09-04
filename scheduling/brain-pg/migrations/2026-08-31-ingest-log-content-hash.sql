@@ -1,0 +1,28 @@
+--
+-- 2026-08-31 — ingest_log.content_hash (upgrade path for a Core built before this date)
+--
+-- THE DEFECT. embed.py's needs_reembed()/update_ingest_log() (2026-07-26, the two-tier
+-- incremental-embed gate) have written and read a `content_hash` column on `ingest_log` on
+-- EVERY ingest since that date. schema.sql never declared it — someone ALTERed the live
+-- `corebrain` by hand at the time, and that ALTER was never captured as a migration. Invisible
+-- on every Core that inherited that hand-run ALTER (which is every Core that already existed
+-- 2026-07-26); FATAL on a fresh install, whose ingest_log is built from schema.sql alone and has
+-- no such column — embed.py's very first hub/evidence write then exits 1, and the brain never
+-- ingests anything, ever. Measured 2026-08-31 on a scratch DB built from schema.sql + this
+-- migrations/ directory with no hand-run ALTER in its history.
+--
+-- THE FIX. schema.sql now declares this column directly (same convention as the bi-temporal /
+-- RLS / edge-embedding folds already in that file — "the complete current end-state"), so a
+-- fresh CREATE TABLE is no longer lying about the live shape. This migration is the OTHER half:
+-- the upgrade path for any Core whose ingest_log predates 2026-08-31 and was built from the old
+-- schema.sql (i.e. does NOT already carry the hand-run ALTER). `ADD COLUMN IF NOT EXISTS` makes
+-- it a no-op both on a Core that already has the column (the hand-ALTERed ones, and anyone who
+-- re-runs schema.sql after this date) and on a Core created fresh after this fix, where
+-- run-migrations.sh --ensure still applies every migrations/*.sql file regardless.
+--
+-- Deliberately NOT backfilled for existing rows: a NULL content_hash is exactly what
+-- needs_reembed() already handles as "legacy row with no hash yet — embeds once, then
+-- converges" (embed.py's own docstring). No data to lose, nothing to reconcile.
+--
+
+ALTER TABLE ingest_log ADD COLUMN IF NOT EXISTS content_hash TEXT;

@@ -1,0 +1,308 @@
+#!/usr/bin/env bash
+# spawn-core — ONE turnkey command to stand up a fully-wired sibling Core.
+#
+# Replaces the piecemeal spawn ritual (init-multi-core.sh → hand-edit CLAUDE.md →
+# hand-edit .mcp.json → hand-set hook_profile → run reconcile → run brain-roles →
+# hope core-doctor passes). This is the "as seamless as starting a session" flow:
+# one command derives everything from the baseline template + three arguments, then
+# gates on core-doctor. Success = a new Core stands up with NO hand-editing of
+# settings.json / CLAUDE.md / identity / tenants.
+#
+#   bin/spawn-core <domain> <org_id> [role] [--deps] [--dry-run]
+#     domain     slug for the Core (e.g. ops) → ~/AI Projects/core-<domain>
+#     org_id     integer >= 5 (1-4 are the existing Cores; refused)
+#     role       writer | puller   (default: puller — the normal case; life is the
+#                only writer). Sets identity.hook_profile.role, which drives which
+#                hooks reconcile-hooks registers (pullers get shared-write-guard +
+#                sync-from-baseline; the writer does not).
+#     --deps     also run install-deps.sh in the new Core (slow; network + pip).
+#     --dry-run  validate args + preflight + print the ordered plan; touch nothing.
+#
+# Orchestrates (in order): init-multi-core.sh (clone+strip+tenant) → identity
+# (org_id/domain_label/role) → .mcp.json (CORE_ORG_ID/CORE_INSTANCE) → CLAUDE.md
+# (@import base + domain overlay) → [install-deps] → init-brain-roles → reconcile-hooks
+# --apply → seed-hook-dispositions → core-doctor (pass gate) → readback verification.
+#
+# Reversible: `scheduling/brain-pg/teardown-org.py <org_id> --confirm` + rm the dir.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PARENT_DIR="${CORE_PARENT_DIR:-$HOME/AI Projects}"
+# ONE SOURCE OF TRUTH. This literal used to be independent of bin/sync-manifest.json's
+# `baseline_repo`, with no wiring between them (core-business, bus #5873 "D2"). Both happened to
+# agree, so nothing broke — but a forker who repoints the manifest at THEIR fork has not repointed
+# what this script clones, and their spawned children keep cloning from the original author's repo.
+# The manifest is authoritative; the literal survives only as the fallback if that read fails.
+BASELINE_REPO="${BASELINE_REPO:-$(jq -r '.baseline_repo // empty' "$(dirname "${BASH_SOURCE[0]:-$0}")/sync-manifest.json" 2>/dev/null)}"
+BASELINE_REPO="${BASELINE_REPO:-nicknur7/core-agent}"
+COREBRAIN_DB="${COREBRAIN_DB:-corebrain}"
+
+DRY=0
+DEPS=0
+POS=()
+for a in "$@"; do
+  case "$a" in
+    --dry-run) DRY=1 ;;
+    --deps)    DEPS=1 ;;
+    --*)       echo "spawn-core: unknown flag $a" >&2; exit 2 ;;
+    *)         POS+=("$a") ;;
+  esac
+done
+
+if [[ ${#POS[@]} -lt 2 ]]; then
+  echo "Usage: spawn-core <domain> <org_id> [writer|puller] [--deps] [--dry-run]" >&2
+  exit 2
+fi
+DOMAIN="${POS[0]}"
+ORG_ID="${POS[1]}"
+ROLE="${POS[2]:-puller}"
+TARGET_DIR="$PARENT_DIR/core-$DOMAIN"
+
+# ── Validation ──────────────────────────────────────────────────────────
+fail() { echo "spawn-core: $*" >&2; exit 2; }
+[[ "$DOMAIN" =~ ^[a-z0-9][a-z0-9-]*$ ]] || fail "domain must be a lowercase slug (got '$DOMAIN')"
+[[ "$ORG_ID" =~ ^[0-9]+$ ]] || fail "org_id must be an integer (got '$ORG_ID')"
+(( ORG_ID >= 5 )) || fail "org_id must be >= 5 (1-4 are life/business/school/finance)"
+[[ "$ROLE" == writer || "$ROLE" == puller ]] || fail "role must be writer|puller (got '$ROLE')"
+[[ ! -e "$TARGET_DIR" ]] || fail "$TARGET_DIR already exists — refusing to overwrite"
+
+# ── Preflight (report; only DB is a hard-fail-if-missing on a real run) ──
+have() { command -v "$1" >/dev/null 2>&1; }
+pf_ok=1
+report() { printf "  %-22s %s\n" "$1" "$2"; }
+echo "[spawn-core] preflight for domain=$DOMAIN org_id=$ORG_ID role=$ROLE"
+for tool in git jq python3; do
+  if have "$tool"; then report "$tool" "ok"; else report "$tool" "MISSING"; pf_ok=0; fi
+done
+if have psql && psql -d "$COREBRAIN_DB" -c 'SELECT 1' >/dev/null 2>&1; then
+  report "corebrain DB" "reachable"
+  DB_OK=1
+else
+  report "corebrain DB" "UNREACHABLE (tenant + brain-roles steps will be skipped/warned)"
+  DB_OK=0
+fi
+if git ls-remote "https://github.com/${BASELINE_REPO}.git" HEAD >/dev/null 2>&1; then
+  report "baseline $BASELINE_REPO" "reachable"
+else
+  report "baseline $BASELINE_REPO" "UNREACHABLE — clone will fail"; pf_ok=0
+fi
+for s in bin/init-multi-core.sh bin/init-brain-roles.sh bin/reconcile-hooks.py \
+         bin/seed-hook-dispositions.py bin/core-doctor.sh .claude/CLAUDE.base.md; do
+  if [[ -e "$REPO/$s" ]]; then report "$s" "present"; else report "$s" "MISSING"; pf_ok=0; fi
+done
+
+PLAN=(
+  "1. init-multi-core.sh $DOMAIN $ORG_ID   (clone baseline → $TARGET_DIR, strip scaffold, seed tenants row)"
+  "2. identity.json      ← org_id=$ORG_ID, domain_label=$DOMAIN, hook_profile.role=$ROLE"
+  "3. .mcp.json          ← CORE_ORG_ID=$ORG_ID, CORE_INSTANCE=$TARGET_DIR"
+  "4. CLAUDE.md          ← @import CLAUDE.base.md + domain overlay header"
+  "$([[ $DEPS == 1 ]] && echo '5. install-deps.sh     (pip + playwright)' || echo '5. install-deps.sh     SKIPPED (pass --deps to run)')"
+  "6. init-brain-roles.sh (brain_app/brain_admin roles; idempotent)$([[ $DB_OK == 0 ]] && echo '   [SKIP: no DB]' || true)"
+  "7. reconcile-hooks.py --apply   (derive settings.json from role + registry)"
+  "8. seed-hook-dispositions.py    (build the hook-disposition matrix)"
+  "9. core-doctor.sh      (PASS GATE)"
+  "10. readback verification + summary"
+)
+echo "[spawn-core] plan:"
+printf '   %s\n' "${PLAN[@]}"
+
+if [[ $DRY == 1 ]]; then
+  echo "[spawn-core] --dry-run: nothing written. preflight $([[ $pf_ok == 1 ]] && echo OK || echo 'HAS GAPS')."
+  exit $(( pf_ok == 1 ? 0 : 1 ))
+fi
+[[ $pf_ok == 1 ]] || fail "preflight has gaps (see MISSING above) — resolve before a real spawn"
+
+# ── Helper: compose a domain-overlay CLAUDE.md that imports the universal base ──
+compose_claude_md() {
+  local target="$1" domain="$2"
+  local claude="$target/CLAUDE.md"   # separate stmt: bash 3.2 (macOS) can't ref $target in the same `local` under set -u
+  # Preserve any baseline-shipped CLAUDE.md for reference, then write the overlay.
+  [[ -f "$claude" ]] && cp "$claude" "$target/.claude/CLAUDE.md.baseline-template" 2>/dev/null || true
+  cat > "$claude" <<EOF
+@.claude/CLAUDE.base.md
+
+# Core ($domain) — <one-line role, EDIT THIS>
+
+You are Core in $domain mode. <Describe this Core's domain, scope, and what it
+owns — EDIT THIS. The universal "me framework" (anti-patterns, honesty, privacy,
+comms, model routing) is inherited from CLAUDE.base.md above; author only the
+domain overlay here.>
+
+## $domain specifics (per-Core — not shared/published)
+
+- <domain hard rules, default accounts, tools — EDIT THIS>
+EOF
+}
+
+# ── Execute ─────────────────────────────────────────────────────────────
+echo "[spawn-core] (1/10) cloning + scaffolding via init-multi-core.sh"
+bash "$REPO/bin/init-multi-core.sh" "$DOMAIN" "$ORG_ID"
+
+IDENTITY="$TARGET_DIR/.claude/identity.json"
+echo "[spawn-core] (2/10) identity.json org/domain/role"
+tmp="$(mktemp)"
+jq --arg d "$DOMAIN" --argjson o "$ORG_ID" --arg r "$ROLE" \
+  '.org_id = $o | .domain_label = $d
+   | .hook_profile = ((.hook_profile // {}) + {role: $r})
+   | .hook_profile.overrides = (.hook_profile.overrides // {})
+   | del(.core_label, .core_slug)' \
+  "$IDENTITY" > "$tmp" && mv "$tmp" "$IDENTITY"
+
+echo "[spawn-core] (3/10) .mcp.json CORE_ORG_ID + CORE_INSTANCE"
+MCP="$TARGET_DIR/.mcp.json"
+if [[ ! -f "$MCP" && -f "$TARGET_DIR/.mcp.json.template" ]]; then
+  cp "$TARGET_DIR/.mcp.json.template" "$MCP"
+fi
+if [[ -f "$MCP" ]]; then
+  tmp="$(mktemp)"
+  BRAIN_DIR="${CORE_BRAIN:-$PARENT_DIR/core-brain}"
+  # (a) core-brain env → THIS Core's org / instance / brain (not the template author's).
+  jq --arg org "$ORG_ID" --arg inst "$TARGET_DIR" --arg brain "$BRAIN_DIR" '
+    .mcpServers."core-brain".env = ((.mcpServers."core-brain".env // {})
+      + {CORE_ORG_ID:$org, CORE_INSTANCE:$inst, CORE_BRAIN:$brain})' \
+    "$MCP" > "$tmp" && mv "$tmp" "$MCP" || echo "  WARN: core-brain env rewrite skipped"
+  # (b) Drop any inherited peer-* blocks (the template ships one that may point at the
+  #     wrong Core / a foreign fork — the 2026-07-11 bug where a clone kept only the
+  #     template's single contaminated peer), then wire a FRESH peer block for every
+  #     sibling core-* dir with an identity.json.
+  jq '.mcpServers |= with_entries(select(.key|startswith("peer-")|not))' "$MCP" > "$tmp" && mv "$tmp" "$MCP"
+  _npeers=0
+  for pd in "$PARENT_DIR"/core-*; do
+    [[ -d "$pd" && "$pd" != "$TARGET_DIR" ]] || continue
+    pslug="$(basename "$pd")"; pslug="${pslug#core-}"
+    [[ "$pslug" == "brain" ]] && continue
+    [[ -f "$pd/.claude/identity.json" ]] || continue
+    jq --arg n "peer-$pslug" --arg label "$pslug" --arg path "$pd/bin/peer-mcp-server.py" --arg cpd "$pd" \
+      '.mcpServers[$n] = {command:"uv", args:["run","--no-project","--python","3.12","--with","mcp","python",$path], env:{CORE_DOMAIN_LABEL:$label, CLAUDE_PROJECT_DIR:$cpd}}' \
+      "$MCP" > "$tmp" && mv "$tmp" "$MCP" && _npeers=$((_npeers+1))
+  done
+  rm -f "$tmp"
+  echo "  .mcp.json: core-brain org=$ORG_ID brain=$BRAIN_DIR + $_npeers sibling peer(s)"
+else
+  echo "  WARN: no .mcp.json/.mcp.json.template in clone — set CORE_ORG_ID manually."
+fi
+
+# (3b) gmail skill — Nick-specific (his accounts), so it can't ship in the public baseline;
+# copy it from an existing Core so every new Core has it universally.
+if [[ ! -d "$TARGET_DIR/.claude/skills/gmail" ]]; then
+  for src in "$PARENT_DIR"/core-life "$PARENT_DIR"/core-*; do
+    if [[ -d "$src/.claude/skills/gmail" && "$src" != "$TARGET_DIR" ]]; then
+      mkdir -p "$TARGET_DIR/.claude/skills"
+      cp -R "$src/.claude/skills/gmail" "$TARGET_DIR/.claude/skills/gmail"
+      echo "  gmail skill copied from $(basename "$src")"
+      break
+    fi
+  done
+fi
+
+echo "[spawn-core] (4/10) CLAUDE.md domain overlay (imports CLAUDE.base.md)"
+compose_claude_md "$TARGET_DIR" "$DOMAIN"
+
+if [[ $DEPS == 1 ]]; then
+  echo "[spawn-core] (5/10) install-deps.sh"
+  ( cd "$TARGET_DIR" && bash bin/install-deps.sh ) || echo "  WARN: install-deps failed (non-fatal)"
+else
+  echo "[spawn-core] (5/10) install-deps.sh SKIPPED (--deps not passed)"
+fi
+
+echo "[spawn-core] (6/10) init-brain-roles.sh"
+if [[ $DB_OK == 1 ]]; then
+  COREBRAIN_DB="$COREBRAIN_DB" bash "$TARGET_DIR/bin/init-brain-roles.sh" || echo "  WARN: brain-roles failed"
+else
+  echo "  SKIP: corebrain DB unreachable"
+fi
+
+echo "[spawn-core] (7/10) reconcile-hooks.py --apply"
+CORE_INSTANCE="$TARGET_DIR" python3 "$TARGET_DIR/bin/reconcile-hooks.py" --core "$TARGET_DIR" --apply
+
+# (7b) settings.json env.CORE_ORG_ID — hooks + close-scripts read CORE_ORG_ID from the settings
+# `env` block (NOT .mcp.json, which only scopes MCP servers). Without it, run-brain-update.sh /
+# embed.py fail at close with "CORE_ORG_ID env var required" — the 2026-07-18 core-ops brain-embed
+# failure (spawned Core had CORE_ORG_ID in .mcp.json but no settings env block). reconcile-hooks.py
+# manages only `hooks`, so setting env here is preserved across re-derivation. Idempotent.
+SETTINGS_JSON="$TARGET_DIR/.claude/settings.json"
+if [[ -f "$SETTINGS_JSON" ]] && command -v jq >/dev/null 2>&1; then
+  _tmp_settings=$(mktemp)
+  if jq --arg org "$ORG_ID" '.env = ((.env // {}) + {CORE_ORG_ID: $org})' "$SETTINGS_JSON" > "$_tmp_settings" 2>/dev/null; then
+    mv "$_tmp_settings" "$SETTINGS_JSON"
+    echo "  settings.json env.CORE_ORG_ID=$ORG_ID set"
+  else
+    rm -f "$_tmp_settings"; echo "  WARN: could not set settings.json env.CORE_ORG_ID (set it manually)"
+  fi
+fi
+
+echo "[spawn-core] (8/10) seed-hook-dispositions.py"
+CORE_INSTANCE="$TARGET_DIR" python3 "$TARGET_DIR/bin/seed-hook-dispositions.py" --core "$TARGET_DIR"
+
+# (8b) BIRTH THE STATE FILES FRESH. The baseline ships memory/current-state.md with whatever
+# stamp it was last committed with, so a Core spawned today was born reporting a state file
+# 935 hours stale — core-doctor warned about it on minute one, and the SessionStart staleness
+# check would fire on the first session. A brand-new Core cannot have stale state; it has NO
+# state. Found in the 2026-07-28 spawn dress rehearsal.
+CS="$TARGET_DIR/memory/current-state.md"
+if [[ -f "$CS" ]]; then
+  cat > "$CS" <<CSEOF
+---
+Last updated: $(date "+%Y-%m-%d %H:%M %Z")
+Status: active
+---
+
+# Current state — core-$DOMAIN
+
+Spawned $(date "+%Y-%m-%d") via \`bin/spawn-core $DOMAIN $ORG_ID $ROLE\`. No sessions yet.
+
+This file is a NARRATIVE of the last 1-2 sessions plus pointers, not a task queue.
+Authoritative status lives in \`memory/projects/<project>.md\`, \`memory/decisions-log.md\`
+and \`sessions/YYYY-MM-DD.md\`.
+
+## Pickup for next session
+
+Author the domain overlay in \`CLAUDE.md\` (marked EDIT THIS), then start working.
+CSEOF
+  echo "  memory/current-state.md stamped fresh"
+fi
+
+# (8c) LEAVE THE WORKING TREE CLEAN. The spawn edits four tracked files and drops two scratch
+# files, so a fresh Core's very first \`git status\` showed 6 dirty paths and core-doctor
+# reported dirty=6. That trains the operator to ignore a dirty tree from day one, and the
+# first defensive auto-commit would sweep the scratch files in. Commit the scaffolding as the
+# birth commit and remove the scratch.
+rm -f "$TARGET_DIR/.claude/settings.json.bak" "$TARGET_DIR/.claude/CLAUDE.md.baseline-template"
+if git -C "$TARGET_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$TARGET_DIR" add -A >/dev/null 2>&1 || true
+  if ! git -C "$TARGET_DIR" diff --cached --quiet 2>/dev/null; then
+    git -C "$TARGET_DIR" commit -q -m "spawn: core-$DOMAIN (org_id=$ORG_ID, role=$ROLE)
+
+Stood up by bin/spawn-core from the $BASELINE_REPO baseline. Identity, MCP wiring,
+CLAUDE.md import, derived settings.json hooks and a fresh current-state.md." >/dev/null 2>&1 \
+      && echo "  birth commit written (clean tree)" \
+      || echo "  WARN: could not write birth commit — tree left dirty"
+  fi
+fi
+
+echo "[spawn-core] (9/10) core-doctor.sh (pass gate)"
+DOCTOR_OUT="$(CORE_INSTANCE="$TARGET_DIR" bash "$TARGET_DIR/bin/core-doctor.sh" 2>&1 || true)"
+echo "$DOCTOR_OUT" | sed 's/^/    /'
+
+echo "[spawn-core] (10/10) readback verification"
+verify_fail=0
+v() { if eval "$2"; then echo "  ✓ $1"; else echo "  ✗ $1"; verify_fail=1; fi; }
+v "identity org_id=$ORG_ID"        "[[ \$(jq -r .org_id '$IDENTITY') == '$ORG_ID' ]]"
+v "identity role=$ROLE"            "[[ \$(jq -r .hook_profile.role '$IDENTITY') == '$ROLE' ]]"
+v "settings.json has hooks"        "[[ \$(jq '[.hooks[][]?] | length' '$TARGET_DIR/.claude/settings.json') -gt 0 ]]"
+v "CLAUDE.md imports base"         "grep -q '@.claude/CLAUDE.base.md' '$TARGET_DIR/CLAUDE.md'"
+v "hook-disposition matrix built"  "[[ -f '$TARGET_DIR/.claude/state/hook-dispositions.json' ]]"
+if [[ $DB_OK == 1 ]]; then
+  v "tenants row org=$ORG_ID"      "[[ \$(psql -d '$COREBRAIN_DB' -tAc \"SELECT count(*) FROM tenants WHERE org_id=$ORG_ID\") == '1' ]]"
+fi
+
+echo ""
+if [[ $verify_fail == 0 ]]; then
+  echo "[spawn-core] ✅ core-$DOMAIN stood up + verified. Next:"
+  echo "    1. Author the domain overlay in $TARGET_DIR/CLAUDE.md (marked EDIT THIS)."
+  echo "    2. cd '$TARGET_DIR' && claude"
+  exit 0
+else
+  echo "[spawn-core] ⚠️  spawned with verification gaps above — inspect before first session."
+  exit 1
+fi

@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+# UserPromptSubmit hook — surfaces a STALENESS WARNING when the current
+# session crosses staleness thresholds:
+#   - estimated tokens > 75,000
+#   - tool call count   > 80
+#   - elapsed wall time > 4 hours
+#
+# Firing policy (revised 2026-05-13 after school session drift):
+#   - 2/3 thresholds → fire ONCE per session, then quiet (per-session marker
+#     in /tmp/staleness-2of3-fired-<hash>). Early heads-up without nag-spam.
+#     Replaces the 2026-05-04 walkback to pure 3/3 which let school's
+#     2026-05-13 session drift unflagged through hours of heavy tool use.
+#   - 3/3 thresholds → fire on every prompt (severe; existing behavior).
+#
+# Reads the most-recent JSONL transcript at
+# ~/.claude/projects/<mangled-cwd-slug>/ (e.g. -Users-you-AI-Projects-core)
+# parses message contents/tool_use/tool_result, computes metrics, and
+# emits the warning via hookSpecificOutput.additionalContext so Claude
+# sees it on the next response.
+#
+# Exits silently (no output, exit 0) unless all 3 thresholds cross.
+# Never blocks the prompt — failures inside the python block are swallowed.
+set -uo pipefail
+
+for cmd in python3; do
+  command -v "$cmd" >/dev/null 2>&1 || echo "[$(basename "$0")] WARN: $cmd not found — some checks may be skipped" >&2
+done
+
+# Read full stdin JSON once — we want both transcript_path AND cwd from it.
+STDIN_JSON=""
+if [[ ! -t 0 ]]; then
+  STDIN_JSON=$(cat)
+fi
+
+# Prefer transcript_path from UserPromptSubmit hook stdin — that's the authoritative
+# pointer to the CURRENT session's JSONL. Fix 2026-05-12: `ls -t` could return the
+# PREVIOUS session's JSONL when its mtime was newer than the current session's at
+# hook-fire time, causing false-positive staleness warnings.
+TRANSCRIPT_PATH=$(printf '%s' "$STDIN_JSON" | python3 -c 'import sys,json
+try:
+    print(json.load(sys.stdin).get("transcript_path",""))
+except Exception:
+    pass' 2>/dev/null || true)
+
+# Derive PROJECTS_DIR from stdin cwd so the fallback path resolves correctly under
+# both main (-AI-Projects-core) and school (-AI-Projects-core-school) worktrees.
+# Fix 2026-05-12 (audit core-school finding): the previous hardcode of main's JSONL
+# dir caused fallback queries from school worktree to surface main's metrics.
+CWD_FROM_STDIN=$(printf '%s' "$STDIN_JSON" | python3 -c 'import sys,json
+try:
+    print(json.load(sys.stdin).get("cwd",""))
+except Exception:
+    pass' 2>/dev/null || true)
+
+if [[ -n "$CWD_FROM_STDIN" ]]; then
+  PROJECTS_DIR="$HOME/.claude/projects/-$(echo "$CWD_FROM_STDIN" | sed 's|^/||; s|[/ ]|-|g')"
+else
+  PROJECTS_DIR="$HOME/.claude/projects/-$(pwd | sed 's|^/||; s|[/ ]|-|g')"
+fi
+
+if [[ -n "$TRANSCRIPT_PATH" ]]; then
+  # Fresh session: stdin gives us the path but JSONL isn't flushed to disk yet.
+  # Without this guard the ls -t fallback returns the PREVIOUS session's JSONL
+  # and reports its stale token/tool/elapsed numbers as if they were ours.
+  [[ -f "$TRANSCRIPT_PATH" ]] || exit 0
+  LATEST_JSONL="$TRANSCRIPT_PATH"
+else
+  LATEST_JSONL=$(ls -t "$PROJECTS_DIR"/*.jsonl 2>/dev/null | head -1)
+fi
+
+if [[ -z "${LATEST_JSONL:-}" || ! -f "$LATEST_JSONL" ]]; then
+  exit 0
+fi
+
+python3 - "$LATEST_JSONL" <<'PY' || exit 0
+import json, sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+TOKEN_LIMIT = 50_000
+TOOL_LIMIT = 65
+ELAPSED_LIMIT_MIN = 90
+# Thresholds recalibrated 2026-05-14 from empirical analysis of 131 JSONLs
+# (tasks/research/staleness-empirical-2026-05-14.md). Old: 75K/80/240. The old
+# thresholds fired at the empirical correction-rate peak (10.73% rot in 75-100K
+# bucket) rather than before it; new thresholds catch the onset, not the peak.
+# Note 240min sat in an empirical dead-zone (1.93%, almost no sessions there);
+# real elapsed signal peaks at 60-120m (8.15%). 90min sits at the leading edge.
+
+path = sys.argv[1]
+token_chars = 0
+tool_count = 0
+first_ts = None
+last_ts = None
+
+def add_text(s):
+    global token_chars
+    if isinstance(s, str):
+        token_chars += len(s)
+
+with open(path) as f:
+    for line in f:
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+
+        t = d.get("type")
+        ts = d.get("timestamp")
+        if t not in ("user", "assistant"):
+            continue
+
+        msg = d.get("message") or {}
+        content = msg.get("content")
+
+        # Detect first real user-text message for elapsed-time anchor
+        if t == "user" and ts and first_ts is None:
+            txt = ""
+            if isinstance(content, str):
+                txt = content
+            elif isinstance(content, list):
+                # Skip tool_result-only payloads
+                if not any(isinstance(p, dict) and p.get("type") == "tool_result" for p in content):
+                    for p in content:
+                        if isinstance(p, dict) and p.get("type") == "text":
+                            txt = p.get("text", "") or ""
+                            break
+            if txt and not txt.startswith("<"):
+                first_ts = ts
+
+        # Token-est + tool-count accounting
+        if isinstance(content, str):
+            add_text(content)
+        elif isinstance(content, list):
+            for p in content:
+                if not isinstance(p, dict):
+                    continue
+                pt = p.get("type")
+                if pt == "tool_use":
+                    tool_count += 1
+                    # tool input usually small, skip
+                elif pt == "text":
+                    add_text(p.get("text", ""))
+                elif pt == "tool_result":
+                    c = p.get("content", "")
+                    if isinstance(c, str):
+                        add_text(c)
+                    elif isinstance(c, list):
+                        for sub in c:
+                            if isinstance(sub, dict) and sub.get("type") == "text":
+                                add_text(sub.get("text", ""))
+
+        if ts:
+            last_ts = ts
+
+# Compute elapsed
+elapsed_min = 0
+if first_ts and last_ts:
+    try:
+        f_dt = datetime.strptime(first_ts.replace("Z", "+0000"), "%Y-%m-%dT%H:%M:%S.%f%z")
+        l_dt = datetime.strptime(last_ts.replace("Z", "+0000"), "%Y-%m-%dT%H:%M:%S.%f%z")
+        elapsed_min = int((l_dt - f_dt).total_seconds() / 60)
+    except Exception:
+        elapsed_min = 0
+
+token_est = token_chars // 4
+
+crossed = []
+if token_est > TOKEN_LIMIT:
+    crossed.append(f"tokens ~{token_est:,} (>{TOKEN_LIMIT:,})")
+if tool_count > TOOL_LIMIT:
+    crossed.append(f"tool calls {tool_count} (>{TOOL_LIMIT})")
+if elapsed_min > ELAPSED_LIMIT_MIN:
+    hrs = elapsed_min / 60
+    limit_hrs = ELAPSED_LIMIT_MIN / 60
+    crossed.append(f"elapsed {hrs:.1f}h (>{limit_hrs:.1f}h)")
+
+if len(crossed) < 2:
+    sys.exit(0)
+
+# 2/3 → once-only per session; 3/3 → always (severe)
+if len(crossed) == 2:
+    import os, hashlib
+    session_key = hashlib.sha256(path.encode()).hexdigest()[:16]
+    marker = f"/tmp/staleness-2of3-fired-{session_key}"
+    if os.path.exists(marker):
+        sys.exit(0)
+    try:
+        open(marker, 'w').close()
+    except Exception:
+        pass  # if /tmp not writable, still fire — better warn twice than zero
+
+warning = (
+    "STALENESS WARNING — this session crossed "
+    f"{len(crossed)}/3 thresholds: " + "; ".join(crossed) + ". "
+    "Surface to Nick at the top of your next response with the specific numbers, "
+    "and recommend either /clear (preserves session for /resume) or closing + reopening for the next thread. "
+    "Quality degrades past these thresholds; the empirical case is the 2026-05-04 audit."
+)
+
+out = {
+    "hookSpecificOutput": {
+        "hookEventName": "UserPromptSubmit",
+        "additionalContext": warning,
+    }
+}
+print(json.dumps(out))
+PY

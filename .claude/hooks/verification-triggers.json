@@ -1,0 +1,66 @@
+{
+  "phrase_triggers": [
+    {
+      "slug": "already-told-you",
+      "pattern": "\\b(?:i\\s+(?:already\\s+)?told\\s+you|as\\s+i\\s+(?:said|mentioned)|like\\s+i\\s+(?:said|told\\s+you|mentioned)|i\\s+mentioned|i\\s+(?:already\\s+)?said(?:\\s+earlier)?)\\b",
+      "reminder": "The operator is referencing prior-session context (\"I told you\" / \"as I said\" / \"I mentioned\"). The information they're calling out is almost certainly in memory/ — most likely memory/about-me.md, memory/relationships/<name>.md, or the most recent 2-3 sessions/YYYY-MM-DD.md files. Your FIRST tool call MUST be a grep across those for the topic they're referencing. Don't ask them to repeat info — find what they already said and read it. If after the grep you genuinely can't locate it, ask exactly ONE specific question naming where you looked."
+    }
+  ],
+  "project_patterns": [
+    {
+      "slug": "team-assistant",
+      "pattern": "\\bteam[\\s-]+assistant\\b|\\boffice\\s+assistant\\b|\\bteam\\s+bot\\b"
+    },
+    {
+      "slug": "job-tracker",
+      "pattern": "\\bjob[\\s-]+tracker\\b|\\bapplication[\\s-]+tracker\\b"
+    },
+    {
+      "slug": "receipt-reader",
+      "pattern": "\\breceipt[\\s-]+reader\\b"
+    },
+    {
+      "slug": "core-brain",
+      "pattern": "\\bcore[\\s-]+brain\\b"
+    },
+    {
+      "slug": "core-ui",
+      "pattern": "\\bcore[\\s-]+ui\\b"
+    },
+    {
+      "slug": "core-improvement",
+      "pattern": "\\bcore[\\s-]+improvement\\b"
+    }
+  ],
+  "_course_patterns_comment": "THIS DEPLOYMENT'S TAXONOMY, NOT A GENERAL RULE (see scheduling/brain-pg/hub_ownership.py's DOMAIN_CLAIMS for the same note). Course codes, slugs and phrasing below are illustrative shapes for this operator's own school Core, generalized so no real course, assignment or classmate travels in shared/published code. A fork with a different school (or none) should replace or drop this list.",
+  "course_patterns": [
+    {
+      "slug": "econ-301",
+      "pattern": "\\becon[\\s-]?301\\b|\\bteam\\s+\\d\\b|\\bsim(?:ulation)?\\s+decisions?\\b|\\bQ[1-8]\\s+(?:plan|justification|decisions?|sim)\\b|\\bjustification\\s+docx?\\b|\\bcomeback[\\s-]+plan\\b"
+    },
+    {
+      "slug": "ba-250",
+      "pattern": "\\bba[\\s-]?250\\b|\\bindividual\\s+(?:team\\s+)?checkpoint\\b|\\bR[1-9]\\s+(?:team|meeting|zoom)?\\b|\\ballocating\\s+resources\\b"
+    },
+    {
+      "slug": "psy-220",
+      "pattern": "\\bpsy[\\s-]?220\\b|\\bneg(?:otiation)?\\s*#?\\d|\\balpha\\s*8\\b|\\bbeta\\s*\\d\\b"
+    },
+    {
+      "slug": "fin-240",
+      "pattern": "\\bfin[\\s-]?240\\b|\\bpay[\\s-]+for[\\s-]+performance\\b|\\bpay\\s+structures\\b"
+    },
+    {
+      "slug": "comm-180",
+      "pattern": "\\bcomm[\\s-]?180\\b|\\bcrucial\\s+conversations\\b"
+    },
+    {
+      "slug": "dsgn-210",
+      "pattern": "\\bdsgn[\\s-]?210\\b|\\bposition\\s+statement\\b"
+    },
+    {
+      "slug": "wr-315",
+      "pattern": "\\bwr[\\s-]?315\\b|\\bcya\\b"
+    }
+  ]
+}

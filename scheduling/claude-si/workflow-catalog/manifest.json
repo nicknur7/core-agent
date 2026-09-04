@@ -1,0 +1,18 @@
+{
+  "triad_review_v1": {
+    "script": "triad-review-v1.workflow.js",
+    "sha256": "b08b9f75591016edde23d77ac8e41b3f086e63968d561a371f897c6f3d371486",
+    "description": "Scope the pending diff, then run 3 independent adversarial reviews before a blast-radius change ships.",
+    "signals": [
+      "orchestrate multiple review agents before shipping",
+      "run a multi-agent review workflow before shipping",
+      "spawn several reviewers to check a change before it ships",
+      "coordinate independent reviewers in parallel before a blast-radius change",
+      "fan out independent reviewers before shipping"
+    ],
+    "agent_cap": 4,
+    "model_tiers": {"scope": "sonnet", "review": "fable"},
+    "params_schema": {"glob": "glob"},
+    "params_default": {"glob": "."}
+  }
+}

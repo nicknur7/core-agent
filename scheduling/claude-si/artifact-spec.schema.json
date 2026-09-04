@@ -1,0 +1,254 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "artifact-spec.schema.json",
+ "title": "Friction Artifact Spec",
+ "description": "The declarative spec the generator produces and the ONE static dispatcher interprets. NO executable code \u2014 a closed DSL. additionalProperties:false everywhere; unknown key or operator => rejected at install (fail closed). A malformed spec can at worst express an over-broad condition, contained by the test-gate + fire-budget + lease + watchdog rollback.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "spec_version",
+  "artifact_id",
+  "case_id",
+  "org_id",
+  "type",
+  "event",
+  "condition",
+  "effect",
+  "tests",
+  "template",
+  "scope",
+  "lease",
+  "generator_version"
+ ],
+ "properties": {
+  "spec_version": {
+   "type": "integer",
+   "const": 1
+  },
+  "artifact_id": {
+   "type": "string"
+  },
+  "case_id": {
+   "type": "string"
+  },
+  "org_id": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "type": {
+   "type": "string",
+   "enum": [
+    "contract",
+    "hooked_skill"
+   ],
+   "description": "contract = gated trigger + reminder. hooked_skill = gated trigger + a redacted, hash-pinned markdown payload under .claude/state/friction-artifacts/procedures/. A hooked_skill that proves itself over a window may graduate to a real `skill` under .claude/skills/."
+  },
+  "event": {
+   "type": "string",
+   "enum": [
+    "UserPromptSubmit",
+    "PreToolUse",
+    "Stop",
+    "SessionStart"
+   ]
+  },
+  "condition": {
+   "$ref": "#/$defs/condition"
+  },
+  "effect": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "mode"
+   ],
+   "properties": {
+    "mode": {
+     "type": "string",
+     "enum": [
+      "inject",
+      "block"
+     ]
+    },
+    "message": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "maxLength": 2000,
+     "description": "guidance/block text \u2014 DATA, never interpolated into a command"
+    },
+    "skill_id": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "vestigial; always null. Retained because effect is a closed key-set and every existing spec carries it."
+    }
+   }
+  },
+  "tests": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "positive_ids",
+    "negative_ids"
+   ],
+   "properties": {
+    "positive_ids": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1
+    },
+    "negative_ids": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1
+    }
+   }
+  },
+  "template": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "sha256"
+   ],
+   "properties": {
+    "id": {
+     "type": "string"
+    },
+    "sha256": {
+     "type": "string"
+    }
+   }
+  },
+  "scope": {
+   "type": "string",
+   "const": "org_local"
+  },
+  "lease": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "max_fires_per_session",
+    "expires_at"
+   ],
+   "properties": {
+    "max_fires_per_session": {
+     "type": "integer",
+     "minimum": 1,
+     "maximum": 5
+    },
+    "expires_at": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "ISO ts; blockers get a short lease, renewed by the watchdog"
+    }
+   }
+  },
+  "generator_version": {
+   "type": "string"
+  },
+  "payload": {
+   "type": "object",
+   "additionalProperties": false,
+   "description": "procedure only. Pointer to the payload file; path is pinned to <artifact_id>.md and the hash is re-verified against disk at install.",
+   "required": [
+    "path",
+    "sha256",
+    "bytes"
+   ],
+   "properties": {
+    "path": {
+     "type": "string",
+     "description": "<artifact_id>.md, relative to the procedures dir"
+    },
+    "sha256": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    },
+    "bytes": {
+     "type": "integer",
+     "minimum": 1,
+     "maximum": 8192
+    }
+   }
+  }
+ },
+ "$defs": {
+  "condition": {
+   "type": "object",
+   "additionalProperties": false,
+   "description": "A boolean tree of closed-set predicates. Exactly one of all/any/none/op.",
+   "oneOf": [
+    {
+     "required": [
+      "all"
+     ]
+    },
+    {
+     "required": [
+      "any"
+     ]
+    },
+    {
+     "required": [
+      "none"
+     ]
+    },
+    {
+     "required": [
+      "op"
+     ]
+    }
+   ],
+   "properties": {
+    "all": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/condition"
+     },
+     "minItems": 1,
+     "maxItems": 12
+    },
+    "any": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/condition"
+     },
+     "minItems": 1,
+     "maxItems": 12
+    },
+    "none": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/condition"
+     },
+     "minItems": 1,
+     "maxItems": 12
+    },
+    "op": {
+     "type": "string",
+     "enum": [
+      "event_is",
+      "tool_name_in",
+      "tool_mutability_is",
+      "prompt_regex",
+      "assistant_regex",
+      "tool_call_present",
+      "tool_result_present",
+      "state_flag_is",
+      "artifact_delivery_present"
+     ]
+    },
+    "value": {}
+   }
+  }
+ }
+}

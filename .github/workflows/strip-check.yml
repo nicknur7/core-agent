@@ -1,0 +1,48 @@
+name: strip-check
+
+# Refuses to let maintainer-specific personal data into the published repo: names, emails,
+# usernames, locations, instance-specific directory names, and absolute /Users/<someone>/ paths.
+#
+# THIS FILE USED TO DEFEAT ITS OWN PURPOSE. It carried the whole pattern list inline — a surname,
+# a username, two maintainer email addresses, a third party's email address, and the maintainer's
+# CITY — and then exempted itself from the scan so nothing ever flagged it. A reader did not need
+# to find the leak; the guard printed it. That is strictly worse than having no guard, because it
+# also tells anyone reading exactly which strings to search the rest of the tree for.
+#
+# It is now a thin wrapper over bin/strip-check.py, which derives what to look for from YOUR
+# .claude/identity.json, your OS user name, and an optional gitignored bin/.strip-patterns file.
+# Nothing personal is committed, and the check actually works for whoever forked this — the old
+# hardcoded list scanned a stranger's repo for a name that was not theirs and passed vacuously.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  strip-check:
+    # ENGINE-ONLY. A private instance Core LEGITIMATELY contains its operator's personal data —
+    # that is what the memory layer is for — so running this there is a category error that
+    # always false-fails. It is scoped to the published repo; on a fork the job skips.
+    #
+    # This gate silently pointed at the OLD repository name for its whole life, which meant the
+    # condition was false on every run and the check never once executed. A guard that cannot fire
+    # is indistinguishable from a passing one in the UI. If you rename this repo, change this line.
+    if: ${{ github.repository == 'nicknur7/core-agent' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Scan the shipped file set for personal data
+        run: python3 bin/strip-check.py
+
+      - name: Scan shipped comments/docstrings for personal-life PROSE
+        # SECOND, SEPARATE STEP (2026-09-02, the public-repo incident) — not folded into the step
+        # above. strip-check.py hunts identifiers; every leak found in the incident had none, and
+        # was instead a FACT narrated in a WHY-comment (a relationship, a course, a comp figure,
+        # an outside application) that no identifier-scrubber can see. See bin/prose-privacy-lint.py.
+        run: python3 bin/prose-privacy-lint.py

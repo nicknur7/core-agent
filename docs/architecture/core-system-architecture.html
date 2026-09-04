@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Core — System Architecture</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --border: #e2e0da; --text: #1b1a17; --text-dim: #5b584f;
+  --accent: #2f6f4f; --accent-2: #7a4fa3; --code-bg: #f0efe9;
+  --sense: #2f6f9c; --judge: #7a5fa3; --learn: #2f6f4f; --act: #a3672f; --police: #a33f3f;
+  --retired-bg: #efefec; --retired-text: #8c8a82;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181a; --panel: #1e2124; --border: #33373b; --text: #e8e6e1; --text-dim: #a7a49b;
+    --accent: #6fbf94; --accent-2: #c7a6ec; --code-bg: #232629;
+    --sense: #7fb8e0; --judge: #c7a6ec; --learn: #7fd6ab; --act: #e0a86f; --police: #e08a8a;
+    --retired-bg: #232629; --retired-text: #74716a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16181a; --panel: #1e2124; --border: #33373b; --text: #e8e6e1; --text-dim: #a7a49b;
+  --accent: #6fbf94; --accent-2: #c7a6ec; --code-bg: #232629;
+  --sense: #7fb8e0; --judge: #c7a6ec; --learn: #7fd6ab; --act: #e0a86f; --police: #e08a8a;
+  --retired-bg: #232629; --retired-text: #74716a;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont,
+  "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; line-height: 1.5; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+header.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  margin-bottom: 8px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+.subtitle { color: var(--text-dim); margin: 0 0 24px; font-size: 0.95rem; }
+button#theme-toggle { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; }
+.overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px;
+  margin: 20px 0 32px; }
+.overview .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px; text-align: center; }
+.overview .stat-n { font-size: 1.4rem; font-weight: 700; }
+.overview .stat-l { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+.flow-diagram { width: 100%; height: auto; margin: 8px 0 32px; }
+.flow-box { fill: var(--panel); stroke: var(--border); stroke-width: 1.5; }
+.flow-sense { stroke: var(--sense); } .flow-judge { stroke: var(--judge); }
+.flow-learn { stroke: var(--learn); } .flow-act { stroke: var(--act); }
+.flow-police { stroke: var(--police); stroke-dasharray: 4 3; }
+.flow-label { fill: var(--text); font-size: 15px; font-weight: 600; }
+.flow-arrow { stroke: var(--text-dim); stroke-width: 2; }
+.flow-arrowhead { fill: var(--text-dim); }
+.flow-intercept { stroke: var(--police); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: 0.6; }
+a { color: var(--accent-2); }
+section.layer { margin: 40px 0; padding-top: 8px; border-top: 3px solid var(--border); }
+.layer-sense { border-top-color: var(--sense); } .layer-judge { border-top-color: var(--judge); }
+.layer-learn { border-top-color: var(--learn); } .layer-act { border-top-color: var(--act); }
+.layer-police { border-top-color: var(--police); }
+.layer-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.layer-head h2 { margin: 12px 0 0; font-size: 1.3rem; }
+.layer-count { color: var(--text-dim); font-size: 0.85rem; }
+.layer-blurb { color: var(--text-dim); margin: 4px 0 20px; font-size: 0.92rem; }
+.rung-group { margin: 18px 0; }
+.rung-group h3 { font-size: 1rem; margin: 0 0 10px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.04em; }
+.event-group { margin: 0 0 16px; }
+.event-group h4 { font-size: 0.85rem; margin: 0 0 8px; font-family: ui-monospace, SFMono-Regular,
+  Menlo, monospace; color: var(--text-dim); }
+.cap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.cap-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; }
+.cap-card.retired { background: var(--retired-bg); border-style: dashed; opacity: 0.85; }
+.cap-card.retired .cap-name, .cap-card.retired .cap-evidence { color: var(--retired-text); }
+.cap-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.cap-name { font-weight: 600; font-size: 0.92rem; }
+.badge { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.03em; padding: 1px 6px;
+  border-radius: 999px; }
+.badge-retired { background: var(--police); color: #fff; }
+.cap-meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+.cap-evidence { font-size: 0.82rem; margin-top: 6px; }
+.cap-owner { font-size: 0.72rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-dim); margin-top: 6px; background: var(--code-bg); border-radius: 6px;
+  padding: 2px 6px; display: inline-block; }
+.cap-reason { font-size: 0.78rem; margin-top: 6px; color: var(--police); font-style: italic; }
+.empty { color: var(--text-dim); font-style: italic; }
+.stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.stat-row .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 20px; text-align: center; }
+.stat-row .stat-n { font-size: 1.6rem; font-weight: 700; }
+.stat-row .stat-l { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+.stat-row .stat-sub { font-size: 0.7rem; }
+.errors { background: var(--retired-bg); border: 1px solid var(--police); border-radius: 10px;
+  padding: 12px 16px; font-size: 0.85rem; margin-top: 12px; }
+.errors li { margin: 4px 0; }
+footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--border);
+  color: var(--text-dim); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Core — System Architecture</h1>
+      <p class="subtitle">Seat: core · 77 capabilities across five layers —
+        Sense, Judge, Learn, Act, and Police cutting across all four.</p>
+    </div>
+    <button id="theme-toggle" type="button">Toggle theme</button>
+  </header>
+
+  <div class="overview"><div class="stat"><div class="stat-n">18</div><div class="stat-l">Sense</div></div><div class="stat"><div class="stat-n">11</div><div class="stat-l">Judge</div></div><div class="stat"><div class="stat-n">17</div><div class="stat-l">Learn</div></div><div class="stat"><div class="stat-n">10</div><div class="stat-l">Act</div></div><div class="stat"><div class="stat-n">21</div><div class="stat-l">Police</div></div></div>
+
+  <svg viewBox="0 0 860 196" class="flow-diagram" role="img"
+     aria-label="Sense feeds Judge feeds Learn feeds Act; Police can intercept at any stage">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7"
+            orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="flow-arrowhead"/>
+    </marker>
+  </defs>
+  <line x1="115.0" y1="130" x2="115.0" y2="80" class="flow-intercept"/><line x1="325.0" y1="130" x2="325.0" y2="80" class="flow-intercept"/><line x1="535.0" y1="130" x2="535.0" y2="80" class="flow-intercept"/><line x1="745.0" y1="130" x2="745.0" y2="80" class="flow-intercept"/>
+  <a href="#layer-police"><rect x="40" y="130" width="780" height="46" rx="10" class="flow-box flow-police"/><text x="430.0" y="159" class="flow-label" text-anchor="middle">Police — intercepts any of the above</text></a>
+  <line x1="190" y1="50.0" x2="250" y2="50.0" class="flow-arrow" marker-end="url(#arrow)"/><line x1="400" y1="50.0" x2="460" y2="50.0" class="flow-arrow" marker-end="url(#arrow)"/><line x1="610" y1="50.0" x2="670" y2="50.0" class="flow-arrow" marker-end="url(#arrow)"/>
+  <a href="#layer-sense"><rect x="40" y="20" width="150" height="60" rx="10" class="flow-box flow-sense"/><text x="115.0" y="55.0" class="flow-label" text-anchor="middle">Sense</text></a><a href="#layer-judge"><rect x="250" y="20" width="150" height="60" rx="10" class="flow-box flow-judge"/><text x="325.0" y="55.0" class="flow-label" text-anchor="middle">Judge</text></a><a href="#layer-learn"><rect x="460" y="20" width="150" height="60" rx="10" class="flow-box flow-learn"/><text x="535.0" y="55.0" class="flow-label" text-anchor="middle">Learn</text></a><a href="#layer-act"><rect x="670" y="20" width="150" height="60" rx="10" class="flow-box flow-act"/><text x="745.0" y="55.0" class="flow-label" text-anchor="middle">Act</text></a>
+</svg>
+
+  <section class="layer layer-sense" id="layer-sense">
+  <div class="layer-head">
+    <h2>Sense</h2>
+    <span class="layer-count">18 capabilities</span>
+  </div>
+  <p class="layer-blurb">Gathers context before the model acts — session state, recall, live inputs.</p>
+  <div class="rung-group"><h3>Hooks</h3><div class="event-group"><h4>InstructionsLoaded</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · InstructionsLoaded</div>
+  <div class="cap-evidence">wired: .claude/settings.json InstructionsLoaded matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>SessionStart</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">friction-watchdog</span></div>
+  <div class="cap-meta">Hooks · SessionStart</div>
+  <div class="cap-evidence">wired: .claude/settings.json SessionStart matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/friction-watchdog.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">learned-resynth-trigger</span></div>
+  <div class="cap-meta">Hooks · SessionStart</div>
+  <div class="cap-evidence">wired: .claude/settings.json SessionStart matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/learned-resynth-trigger.sh</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">session-start-check</span></div>
+  <div class="cap-meta">Hooks · SessionStart</div>
+  <div class="cap-evidence">wired: .claude/settings.json SessionStart matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/session-start-check.sh</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">setup-brain</span></div>
+  <div class="cap-meta">Hooks · SessionStart</div>
+  <div class="cap-evidence">wired: .claude/settings.json SessionStart matcher=(none); sync-from-baseline.sh dispatches to setup-brain</div>
+  <div class="cap-owner">bin/setup-brain.sh</div>
+  
+</div></div></div>
+<div class="event-group"><h4>UserPromptSubmit</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">auto-trigger-suggest</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/auto-trigger-suggest.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">brain-recall-trigger</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/brain-recall-trigger.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">friction-dispatch</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/friction-dispatch.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">friction-runner</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/friction-runner.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">learned-classifier</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/learned-classifier.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">rot-check</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/rot-check.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">session-presence</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/session-presence.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">stop-signal-gate</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/stop-signal-gate.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">verification-trigger</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptSubmit matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/verification-trigger.py</div>
+  
+</div></div></div></div>
+<div class="rung-group"><h3>Skills</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">claude-brain</span></div>
+  <div class="cap-meta">Skills</div>
+  <div class="cap-evidence">Recall past session context from the Claude Code Brain vault at $CORE_BRAIN.</div>
+  <div class="cap-owner">.claude/skills/claude-brain/SKILL.md</div>
+  
+</div></div></div>
+<div class="rung-group"><h3>Commands</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/health</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Show the current session&#x27;s health — token estimate, tool call count, elapsed time — and a continue / /clear / close recommendation.</div>
+  <div class="cap-owner">.claude/commands/health.md</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/recall-similar</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Grep the brain vault for a keyword and surface top-3 prior occurrences with 1-line context.</div>
+  <div class="cap-owner">.claude/commands/recall-similar.md</div>
+  
+</div></div></div>
+<div class="rung-group"><h3>MCP servers</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">core-brain</span></div>
+  <div class="cap-meta">MCP servers</div>
+  <div class="cap-evidence">stdio MCP server registered in .mcp.json.template (template default — not a live .mcp.json on this seat)</div>
+  <div class="cap-owner">.mcp.json.template</div>
+  
+</div></div></div>
+</section>
+<section class="layer layer-judge" id="layer-judge">
+  <div class="layer-head">
+    <h2>Judge</h2>
+    <span class="layer-count">11 capabilities · 2 retired</span>
+  </div>
+  <p class="layer-blurb">Surfaces signals that shape a decision without blocking it — routing, reminders, self-check prompts injected into context.</p>
+  <div class="rung-group"><h3>Hooks</h3><div class="event-group"><h4>PostToolBatch</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">preempt-gate</span></div>
+  <div class="cap-meta">Hooks · PostToolBatch</div>
+  <div class="cap-evidence">wired: .claude/settings.json PostToolBatch matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/preempt-gate.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>PreToolUse</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">delegation-gate</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=*</div>
+  <div class="cap-owner">.claude/hooks/delegation-gate.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">friction-dispatch</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Write|Edit|MultiEdit|NotebookEdit</div>
+  <div class="cap-owner">.claude/hooks/friction-dispatch.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">learned-stopguard</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Write|Edit|MultiEdit|NotebookEdit|Task</div>
+  <div class="cap-owner">.claude/hooks/learned-stopguard.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">sentinel-approve</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Bash|WebFetch|mcp__apple-events__.*|mcp__claude_ai_Canva__.*|mcp__claude_ai_Google_Drive__.*|mcp__github__.*|mcp__playwright__.*; pretooluse-guard.sh dispatches to sentinel-approve</div>
+  <div class="cap-owner">.claude/hooks/sentinel-approve.sh</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">stay-scoped</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=mcp__peer-.*</div>
+  <div class="cap-owner">.claude/hooks/stay-scoped.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">task-brief-reminder</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Task</div>
+  <div class="cap-owner">.claude/hooks/task-brief-reminder.sh</div>
+  
+</div></div></div>
+<div class="event-group"><h4>Stop</h4><div class="cap-grid"><div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">deliverable-format-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/deliverable-format-gate.py</div>
+  <div class="cap-reason">OBSERVE class deliverable_format — describing something the operator will VIEW while pasting it as chat text, sourced by an actual Write/Artifact/SendUserFile.</div>
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">friction-dispatch</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/friction-dispatch.py</div>
+  <div class="cap-reason">Stop registration RETIRED 2026-08-06 under the operator policy that nothing may drive the agent after the reply is sent.</div>
+</div></div></div></div>
+<div class="rung-group"><h3>Skills</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">codex-routing-detail</span></div>
+  <div class="cap-meta">Skills</div>
+  <div class="cap-evidence">Reference detail for delegating work to Codex (GPT-5.6) — the full task→model table with pricing, why the danger-full-access fence is shaped the way it is and how pretooluse-guard enforces it structurally, fork-safety fo</div>
+  <div class="cap-owner">.claude/skills/codex-routing-detail/SKILL.md</div>
+  
+</div></div></div>
+<div class="rung-group"><h3>Commands</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/deep-plan</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Plan-to-no-questions for a system/primitive task — recall the brain, research (system + external), grade built-vs-original-intent, write a complete plan artifact, surface it, wait for go.</div>
+  <div class="cap-owner">.claude/commands/deep-plan.md</div>
+  
+</div></div></div>
+</section>
+<section class="layer layer-learn" id="layer-learn">
+  <div class="layer-head">
+    <h2>Learn</h2>
+    <span class="layer-count">17 capabilities</span>
+  </div>
+  <p class="layer-blurb">Records what happened, at zero behavioral cost — measurement and the self-improvement corpus this system reads back from.</p>
+  <div class="rung-group"><h3>Hooks</h3><div class="event-group"><h4>MessageDisplay</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · MessageDisplay</div>
+  <div class="cap-evidence">wired: .claude/settings.json MessageDisplay matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">reply-observer</span></div>
+  <div class="cap-meta">Hooks · MessageDisplay</div>
+  <div class="cap-evidence">wired: .claude/settings.json MessageDisplay matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/reply-observer.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>Notification</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · Notification</div>
+  <div class="cap-evidence">wired: .claude/settings.json Notification matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>PostCompact</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · PostCompact</div>
+  <div class="cap-evidence">wired: .claude/settings.json PostCompact matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>PostToolBatch</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · PostToolBatch</div>
+  <div class="cap-evidence">wired: .claude/settings.json PostToolBatch matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>PostToolUse</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">capability-usage-log</span></div>
+  <div class="cap-meta">Hooks · PostToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PostToolUse matcher=Skill</div>
+  <div class="cap-owner">.claude/hooks/capability-usage-log.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>PostToolUseFailure</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · PostToolUseFailure</div>
+  <div class="cap-evidence">wired: .claude/settings.json PostToolUseFailure matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>PreCompact</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · PreCompact</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreCompact matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>PreToolUse</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">adversarial-review-gate</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Bash</div>
+  <div class="cap-owner">.claude/hooks/adversarial-review-gate.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">capability-usage-log</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Skill</div>
+  <div class="cap-owner">.claude/hooks/capability-usage-log.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>StopFailure</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · StopFailure</div>
+  <div class="cap-evidence">wired: .claude/settings.json StopFailure matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>SubagentStart</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · SubagentStart</div>
+  <div class="cap-evidence">wired: .claude/settings.json SubagentStart matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>UserPromptExpansion</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">event-probe</span></div>
+  <div class="cap-meta">Hooks · UserPromptExpansion</div>
+  <div class="cap-evidence">wired: .claude/settings.json UserPromptExpansion matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/event-probe.py</div>
+  
+</div></div></div></div>
+<div class="rung-group"><h3>Commands</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/core-si</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">The ONE self-improvement gate.</div>
+  <div class="cap-owner">.claude/commands/core-si.md</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/rebuild-graph</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Force a full heavy graph rebuild (auto-pipeline + lint + tracker + embed).</div>
+  <div class="cap-owner">.claude/commands/rebuild-graph.md</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/refresh-truth</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Refresh compiled_truth_md on hubs whose evidence has drifted since last compile.</div>
+  <div class="cap-owner">.claude/commands/refresh-truth.md</div>
+  
+</div></div></div>
+<div class="rung-group"><h3>Agents</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">close-reconciler</span></div>
+  <div class="cap-meta">Agents</div>
+  <div class="cap-evidence">native flat-format agent spec — the format Claude Code loads</div>
+  <div class="cap-owner">.claude/agents/close-reconciler.md</div>
+  
+</div></div></div>
+</section>
+<section class="layer layer-act" id="layer-act">
+  <div class="layer-head">
+    <h2>Act</h2>
+    <span class="layer-count">10 capabilities</span>
+  </div>
+  <p class="layer-blurb">Writes — commits, syncs, closes a session, runs a scheduled job.</p>
+  <div class="rung-group"><h3>Hooks</h3><div class="event-group"><h4>PostToolUse</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">recall-satisfied</span></div>
+  <div class="cap-meta">Hooks · PostToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PostToolUse matcher=Read|Grep|Glob|WebFetch|WebSearch|Bash|Agent|Task|Skill|mcp__core-brain__.*</div>
+  <div class="cap-owner">.claude/hooks/recall-satisfied.py</div>
+  
+</div></div></div>
+<div class="event-group"><h4>SessionEnd</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">session-lifecycle</span></div>
+  <div class="cap-meta">Hooks · SessionEnd</div>
+  <div class="cap-evidence">wired: .claude/settings.json SessionEnd matcher=(none); defensive-save.sh dispatches to session-lifecycle</div>
+  <div class="cap-owner">.claude/hooks/session-lifecycle.sh</div>
+  
+</div></div></div>
+<div class="event-group"><h4>Stop</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">session-lifecycle</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">wired: .claude/settings.json Stop matcher=(none); stop-hook.sh dispatches to session-lifecycle</div>
+  <div class="cap-owner">.claude/hooks/session-lifecycle.sh</div>
+  
+</div></div></div>
+<div class="event-group"><h4>SubagentStop</h4><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">reconcile-subagent-receipt</span></div>
+  <div class="cap-meta">Hooks · SubagentStop</div>
+  <div class="cap-evidence">wired: .claude/settings.json SubagentStop matcher=close-reconciler</div>
+  <div class="cap-owner">.claude/hooks/reconcile-subagent-receipt.sh</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">sentinel-receipt</span></div>
+  <div class="cap-meta">Hooks · SubagentStop</div>
+  <div class="cap-evidence">wired: .claude/settings.json SubagentStop matcher=sentinel</div>
+  <div class="cap-owner">.claude/hooks/sentinel-receipt.sh</div>
+  
+</div></div></div></div>
+<div class="rung-group"><h3>Commands</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/close-core</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">command file present, no description field</div>
+  <div class="cap-owner">.claude/commands/close-core.md</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/handoff</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Write a self-contained handoff doc capturing current task state so the user can /clear without losing the thread.</div>
+  <div class="cap-owner">.claude/commands/handoff.md</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/retire-legacy</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Sweep the legacy parts the memory-brain redesign superseded — only once the new system is proven</div>
+  <div class="cap-owner">.claude/commands/retire-legacy.md</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/ship</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">command file present, no description field</div>
+  <div class="cap-owner">.claude/commands/ship.md</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">/sync</span></div>
+  <div class="cap-meta">Commands</div>
+  <div class="cap-evidence">Manually sync shared code between current Core and the nicknur7/core-agent baseline.</div>
+  <div class="cap-owner">.claude/commands/sync.md</div>
+  
+</div></div></div>
+</section>
+<section class="layer layer-police" id="layer-police">
+  <div class="layer-head">
+    <h2>Police</h2>
+    <span class="layer-count">21 capabilities · 12 retired</span>
+  </div>
+  <p class="layer-blurb">Blocks — hard gates that stop an action outright when a constraint is violated. Cuts across the other four; it can intercept at any point in the loop.</p>
+  <div class="rung-group"><h3>Hooks</h3><div class="event-group"><h4>PreToolUse</h4><div class="cap-grid"><div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">approval-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/approval-gate.py</div>
+  <div class="cap-reason">2026-07-27: 24 blocks in 58 invocations (41%).</div>
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">casebook-write-gate</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Write|Edit|MultiEdit|NotebookEdit</div>
+  <div class="cap-owner">.claude/hooks/casebook-write-gate.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">model-pin-gate</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Task|Agent|Workflow</div>
+  <div class="cap-owner">.claude/hooks/model-pin-gate.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">recall-before-grep</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Grep|Glob|Bash</div>
+  <div class="cap-owner">.claude/hooks/recall-before-grep.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">recall-first-gate</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Write|Edit|MultiEdit|NotebookEdit</div>
+  <div class="cap-owner">.claude/hooks/recall-first-gate.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">shared-write-guard</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Write|Edit|MultiEdit|NotebookEdit</div>
+  <div class="cap-owner">.claude/hooks/shared-write-guard.py</div>
+  
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">tracking-orphan-guard</span></div>
+  <div class="cap-meta">Hooks · PreToolUse</div>
+  <div class="cap-evidence">wired: .claude/settings.json PreToolUse matcher=Write</div>
+  <div class="cap-owner">.claude/hooks/tracking-orphan-guard.sh</div>
+  
+</div></div></div>
+<div class="event-group"><h4>Stop</h4><div class="cap-grid"><div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">cross-core-completion-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/cross-core-completion-gate.py</div>
+  <div class="cap-reason">Replaced by SUPPLY: session-presence injects a PEERS digest (each peer&#x27;s HEAD + last-synced baseline), making an &#x27;all Cores&#x27; claim checkable from context.</div>
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">decision-attribution-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/decision-attribution-gate.py</div>
+  <div class="cap-reason">OBSERVE class decision_attribution records it at zero cost; recall-first-gate covers the pre-emptive half.</div>
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">financial-figure-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/financial-figure-gate.py</div>
+  <div class="cap-reason">OBSERVE class financial_figure — a currency amount with no live account read in the same turn.</div>
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">learned-recallguard</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/learned-recallguard.py</div>
+  <div class="cap-reason">Same replacement as recall-gate: recall-first-gate at PreToolUse.</div>
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">learned-validator</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">wired: .claude/settings.json Stop matcher=(none)</div>
+  <div class="cap-owner">.claude/hooks/learned-validator.py</div>
+  
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">recall-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/recall-gate.py</div>
+  <div class="cap-reason">Replaced by recall-first-gate (PreToolUse), which already refuses a mutating edit until a real brain query has run — before the claim exists rather than after.</div>
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">say-do-gap</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/say-do-gap.py</div>
+  <div class="cap-reason">OBSERVE class say_do_gap — promise language in the reply with no mutating tool call in the turn.</div>
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">state-claim-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/state-claim-gate.py</div>
+  <div class="cap-reason">OBSERVE class state_claim.</div>
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">time-claim-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · Stop</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/time-claim-gate.py</div>
+  <div class="cap-reason">Replaced by SUPPLY: session-presence now injects START + WALL every turn, so an elapsed claim is answerable from context and needs no tool call.</div>
+</div></div></div>
+<div class="event-group"><h4>UserPromptSubmit</h4><div class="cap-grid"><div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">approval-gate</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Hooks · UserPromptSubmit</div>
+  <div class="cap-evidence">retired in bin/hook-registry.json</div>
+  <div class="cap-owner">.claude/hooks/approval-gate.py</div>
+  <div class="cap-reason">See PreToolUse entry.</div>
+</div></div></div></div>
+<div class="rung-group"><h3>Agents</h3><div class="cap-grid"><div class="cap-card">
+  <div class="cap-head"><span class="cap-name">sentinel</span></div>
+  <div class="cap-meta">Agents</div>
+  <div class="cap-evidence">native flat-format agent spec — the format Claude Code loads</div>
+  <div class="cap-owner">.claude/agents/sentinel.md</div>
+  
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">sentinel</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Agents</div>
+  <div class="cap-evidence">dir-form spec, pre-dates the native flat-.md agent format</div>
+  <div class="cap-owner">.claude/agents/sentinel/CLAUDE.md</div>
+  <div class="cap-reason">dir-form specs survived past the native-format migration; Claude Code loads the flat .md, not this file — it does not run</div>
+</div>
+<div class="cap-card">
+  <div class="cap-head"><span class="cap-name">sentinel-code</span></div>
+  <div class="cap-meta">Agents</div>
+  <div class="cap-evidence">native flat-format agent spec — the format Claude Code loads</div>
+  <div class="cap-owner">.claude/agents/sentinel-code.md</div>
+  
+</div>
+<div class="cap-card retired">
+  <div class="cap-head"><span class="cap-name">sentinel-code</span><span class="badge badge-retired">RETIRED</span></div>
+  <div class="cap-meta">Agents</div>
+  <div class="cap-evidence">dir-form spec, pre-dates the native flat-.md agent format</div>
+  <div class="cap-owner">.claude/agents/sentinel-code/CLAUDE.md</div>
+  <div class="cap-reason">dir-form specs survived past the native-format migration; Claude Code loads the flat .md, not this file — it does not run</div>
+</div></div></div>
+</section>
+
+  <section class="layer" id="si-data">
+    <div class="layer-head"><h2>SI artifacts &amp; learned contracts</h2></div>
+    <p class="layer-blurb">Data the system reads back from, not architecture — one row per
+      recurring correction, synthesized from session history. Shown as a count only.</p>
+    <div class="stat-row"><div class="stat"><div class="stat-n">84</div><div class="stat-l">SI artifacts<br><span class="stat-sub">44 active</span></div></div><div class="stat"><div class="stat-n">6</div><div class="stat-l">Learned contracts<br><span class="stat-sub">6 active</span></div></div></div>
+  </section>
+
+  
+
+  <footer>
+    Generated from bin/gen-arch-roster.py on 2026-09-03, 77 capabilities
+    (63 reachable, 14 retired). Regenerate with
+    <code>python3 bin/gen-architecture-doc.py</code> — do not hand-edit this file.
+  </footer>
+</div>
+<script>
+(function(){
+  var KEY = 'core-arch-theme';
+  var root = document.documentElement;
+  function apply(mode){ if(mode==='light'||mode==='dark'){ root.setAttribute('data-theme', mode); }
+    else { root.removeAttribute('data-theme'); } }
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch(e) {}
+  apply(saved);
+  var btn = document.getElementById('theme-toggle');
+  if (btn) {
+    btn.addEventListener('click', function(){
+      var current = root.getAttribute('data-theme');
+      var next = current === 'dark' ? 'light' : (current === 'light' ? null : 'dark');
+      apply(next);
+      try { if (next) { localStorage.setItem(KEY, next); } else { localStorage.removeItem(KEY); } }
+      catch(e) {}
+    });
+  }
+})();
+</script>
+</body>
+</html>

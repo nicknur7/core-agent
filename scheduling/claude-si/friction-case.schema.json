@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "friction-case.schema.json",
+  "title": "Friction Case",
+  "description": "A single mined friction moment: the unit the SI engine turns into an artifact (contract/hook/skill/hooked-skill). Fully specifies type, firing event, condition, and its own test cases. additionalProperties:false everywhere so a malformed case fails closed and can never be normalized into validity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "case_id", "org_id", "status", "source", "moment", "trigger_context", "agent_did_wrong", "user_wanted", "support", "positive_examples", "negative_examples", "quality"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "case_id": {"type": "string", "description": "deterministic sha256-derived id (idempotent across re-mines)"},
+    "org_id": {"type": "integer", "minimum": 1},
+    "status": {"type": "string", "enum": ["mined", "routed", "generated", "tested", "active", "quarantined", "rolled_back", "ineligible"]},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["transcript_path", "session_id", "correction_uuid", "detector_version", "content_sha256"],
+      "properties": {
+        "transcript_path": {"type": "string"},
+        "session_id": {"type": "string"},
+        "correction_uuid": {"type": "string"},
+        "correction_timestamp": {"type": ["string", "null"]},
+        "detector_version": {"type": "string"},
+        "content_sha256": {"type": "string"}
+      }
+    },
+    "moment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["blocks", "correction"],
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["role", "kind"],
+            "properties": {
+              "role": {"type": "string", "enum": ["user", "assistant"]},
+              "kind": {"type": "string", "enum": ["text", "tool_use", "tool_result"]},
+              "uuid": {"type": ["string", "null"]},
+              "text": {"type": ["string", "null"]},
+              "tool_name": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "correction": {"type": "string", "description": "the user's correction text (the friction signal)"},
+        "window_before": {"type": ["integer", "null"], "description": "# blocks kept before the correction"},
+        "window_after": {"type": ["integer", "null"]}
+      }
+    },
+    "trigger_context": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stage", "candidate_event"],
+      "properties": {
+        "stage": {"type": "string", "enum": ["task_start", "before_tool", "during_tool", "after_claim", "session_close", "ambiguous"]},
+        "candidate_event": {"type": "string", "enum": ["UserPromptSubmit", "PreToolUse", "Stop", "SessionStart", "none"]},
+        "tool_name": {"type": ["string", "null"]},
+        "tool_mutability": {"type": ["string", "null"], "enum": ["mutating", "readonly", null]},
+        "claim_kind": {"type": ["string", "null"]},
+        "evidence_block_uuid": {"type": ["string", "null"]}
+      }
+    },
+    "agent_did_wrong": {"type": "string"},
+    "user_wanted": {"type": "string", "description": "the concrete recurring expectation, imperative"},
+    "support": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cluster_key", "distinct_sessions", "positive_case_ids"],
+      "properties": {
+        "cluster_key": {"type": "string"},
+        "distinct_sessions": {"type": "integer", "minimum": 0},
+        "positive_case_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "positive_examples": {"type": "array", "items": {"$ref": "#/$defs/example"}},
+    "negative_examples": {"type": "array", "items": {"$ref": "#/$defs/example"}},
+    "quality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["parser_complete", "confidence", "eligible_for_routing"],
+      "properties": {
+        "parser_complete": {"type": "boolean"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "ambiguities": {"type": "array", "items": {"type": "string"}},
+        "eligible_for_routing": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "example": {
+      "type": "object", "additionalProperties": false,
+      "required": ["event", "expected", "provenance"],
+      "properties": {
+        "event": {"type": "string", "enum": ["UserPromptSubmit", "PreToolUse", "Stop", "SessionStart"]},
+        "hook_input": {"type": ["object", "null"], "description": "the JSON the dispatcher would receive"},
+        "transcript_fixture": {"type": ["string", "null"]},
+        "expected": {"type": "string", "enum": ["fire", "no_fire"]},
+        "provenance": {"type": "string", "enum": ["real_positive", "real_neighbor", "event_mismatch", "tool_mismatch", "polarity_mutation", "vocab_retained_adversarial", "synthesized"]},
+        "mutation": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

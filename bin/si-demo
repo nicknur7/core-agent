@@ -1,0 +1,446 @@
+#!/usr/bin/env python3
+"""si-demo — watch a correction become an enforced rule, in about a second.
+
+WHY THIS EXISTS
+---------------
+The self-improvement loop is the only non-generic claim this system makes. Everyone says
+"learns over time"; almost everyone means retrieval over past transcripts. This one writes a
+behavioural rule, tests it against evidence it gathered itself, installs it, and later
+measures whether it earned its place.
+
+And until now there was no way to SEE that. The pipeline worked end to end and had no entry
+point — route -> gate -> install -> dispatch runs in about a tenth of a second, and runs
+in about a tenth of a second, but nothing composed the four calls. Reading 23 files was the
+only way to believe it.
+
+  bin/si-demo                          the built-in example
+  bin/si-demo --from-text "..."        your own correction
+  bin/si-demo --json                   machine-readable
+
+WHAT THIS PROVES, AND WHAT IT DOES NOT — read this before quoting it
+--------------------------------------------------------------------
+PROVES: given a correction, the system writes a rule, subjects it to a corpus test-gate that
+can REJECT it, installs it, and the rule then fires on matching input. Every stage is the
+real production code path, not a reimplementation.
+
+RUNS FULLY SANDBOXED. install() has THREE reachable database call sites, not two:
+  · si_project.upsert / .project        (write)  — stubbed here
+  · _fetch_corpus_prompts               (read)   — stubbed here
+  · _count_active_procedures            (read)   — NOT stubbed, and inert by construction:
+       it is gated on _unified_spine(), which tests (STATE/".si-unified-spine").exists(),
+       and STATE is redirected to the tempdir where that marker never exists.
+An earlier version of this note said "both", stubbed only the write, and claimed no other
+path existed. Two successive reviews found the ones it missed. Reachability is enumerated,
+not asserted — and the count is written down so the next reader does not have to re-derive it.
+
+The corpus substitution is REAL but not identically shaped: production samples
+pattern_observations (DB, org-scoped, length>10, capped at 150); the substitute reads session
+JSONL (length>80, uncapped). So the gate here tests specificity against real prompts of >=80
+chars rather than the exact production population. A scope caveat, not a safety one, and it is
+stated because "the same corpus" would have been an overclaim.
+
+DOES NOT PROVE: that mining a correction out of a messy real transcript works — that is
+friction_miner and it needs Postgres and real history. Nor that fitness measurement works
+over time, which needs weeks. A sophisticated reader will notice both, so this says so
+plainly rather than being caught at it.
+
+The honest framing: this is a MECHANISM demo. The evidence that the loop learns is the live
+track record, not this. Run `python3 bin/grade-intent.py` and `bin/grade-gate.py --all` for
+the measurement side.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+SI = REPO / "scheduling" / "claude-si"
+sys.path.insert(0, str(SI))
+
+DEFAULT_CORRECTION = (
+    "stop pasting walls of text at me when i ask for something i need to look at. "
+    "make it an artifact i can actually open"
+)
+DEFAULT_PROMPT = "can you give me a summary of where the migration stands"
+
+# Real prompts the rule must NOT fire on. A gate that fires on everything passes no test
+# worth passing, and the corpus check below is what makes the install meaningful.
+NEIGHBOURS = [
+    "what time is the meeting tomorrow",
+    "run the tests and tell me if they pass",
+    "commit that and push it",
+    "whats the status of the brain pipeline",
+    "explain how the recall layer works",
+    "fix the failing test in bin/tests",
+    "how many hooks are registered right now",
+    "check whether business pulled the fix",
+]
+
+# COLD-START SAMPLE CORPUS — used ONLY by a Core with no history of its own.
+#
+# The gate refuses to install any rule it cannot prove specific against >=40 real prompts
+# (friction_test_gate.MIN_CORPUS). A freshly spawned Core has zero, so every rule is correctly
+# REJECTED and the demo showed a bare "REJECT — no corpus sample available", which reads as a
+# broken product when it is actually the safety property working. Found in the 2026-07-28 spawn
+# dress rehearsal.
+#
+# The fix is NOT to weaken the gate or to pad a real corpus with invented prompts — that would
+# make the one meaningful check meaningless. It is to let a cold Core demonstrate the MECHANISM
+# against an explicitly-labelled sample, while stating plainly that the sample is not the
+# operator's own history. The gate genuinely runs; it genuinely tests over-broadness against
+# these 40; it simply is not yet testing against YOU. That weaker claim is stated out loud
+# rather than glossed.
+#
+# A warm Core never touches this list.
+#
+# BUILT AS A TEST, NOT A BACKDROP. The first version of this was literally NEIGHBOURS —
+# the "must NOT fire on" list — plus filler. So the gate that exists to prove a rule is not
+# over-broad was being run against sentences hand-picked by the rule's own author to be unlike
+# the rule. Expected fire rate 0/40 against a 3% limit: a green light wired to a switch that is
+# always on. core-business: "the demo grades its own homework", and a hostile evaluator finds
+# that in ten seconds by reading two lines 27 apart.
+#
+# So this corpus deliberately contains NEAR-MISSES — prompts an over-broad version of the rule
+# WOULD match. That is what makes it capable of failing, and the demo now shows it failing
+# before it shows it passing. On a warm Core the operator's real history plays this role; the
+# 3% limit over 341 prompts is a real budget with real risk of being blown.
+SAMPLE_CORPUS = NEIGHBOURS + [
+    # ── near-misses: an over-broad trigger matches these; the specific rule must not ──
+    "make the diagram bigger",
+    "make a start on the migration",
+    "show me what changed",
+    "look at the failing test",
+    "give me the short version",
+    "make sure the cron job is registered",
+    "show the last ten commits",
+    "look up when that shipped",
+    "give it another try with the other flag",
+    "make this function pure",
+    "show me where that value comes from",
+    "look through the logs for the timeout",
+    "add a dark mode toggle to the settings page",
+    "why is the build failing on main",
+    "write a migration to add an index on user_id",
+    "summarise what changed in the last ten commits",
+    "can you rename this variable everywhere",
+    "set up a cron job to run this nightly",
+    "what does this error mean",
+    "refactor this function to be pure",
+    "add type hints to the parser module",
+    "is there a test covering the retry path",
+    "open a pull request for the branch",
+    "roll back the last deploy",
+    "how long does the import take on average",
+    "find every place we call the old endpoint",
+    "draft a reply to that email",
+    "what meetings do i have on thursday",
+    "remind me to renew the domain",
+    "compare these two approaches and pick one",
+    "make the error message clearer",
+    "delete the unused imports",
+    "why did that job time out",
+    "show me the schema for the orders table",
+    "add pagination to the results",
+    "cache this query for a minute",
+    "what is the current test coverage",
+    "split this file into smaller modules",
+    "update the readme with the new flags",
+    "check if the certificate is expiring",
+    "profile where the time is going",
+    "add a retry with backoff",
+    "validate the input before saving",
+    "what changed between these two versions",
+    "generate fixtures for the integration tests",
+    "move this logic into a helper",
+]
+
+
+def _real_prompts() -> list:
+    """This Core's actual past prompts, via grade-gate's corpus loader.
+
+    Using real history rather than invented negatives is the whole point of the gate: a rule
+    that survives synthetic negatives can still be hopelessly broad against what Nick really
+    types. Falls back to the built-in neighbours if no transcripts are reachable, and the
+    gate will then refuse for corpus-too-small — which is the correct outcome, not a bug.
+    """
+    # CORE_INSTANCE is pinned to the REAL repo here on purpose. main() redirects
+    # CLAUDE_PROJECT_DIR to a throwaway dir so the demo cannot touch live artifacts, and
+    # grade-gate resolves its transcript directory from those same variables — so without
+    # this pin the loader looks for history inside the empty sandbox and returns nothing.
+    # First run of this demo reported "0 real past prompts" for exactly that reason.
+    import os as _os
+    saved = _os.environ.get("CORE_INSTANCE"), _os.environ.get("CLAUDE_PROJECT_DIR")
+    try:
+        import importlib.util
+        _os.environ["CORE_INSTANCE"] = str(REPO)
+        _os.environ["CLAUDE_PROJECT_DIR"] = str(REPO)
+        sp = importlib.util.spec_from_file_location("gg", REPO / "bin" / "grade-gate.py")
+        gg = importlib.util.module_from_spec(sp)
+        sp.loader.exec_module(gg)
+        return gg.corpus("prompts")
+    except Exception:
+        return list(NEIGHBOURS)
+    finally:
+        for k, v in zip(("CORE_INSTANCE", "CLAUDE_PROJECT_DIR"), saved):
+            if v is None:
+                _os.environ.pop(k, None)
+            else:
+                _os.environ[k] = v
+
+
+def _case(correction: str, prompt: str) -> dict:
+    """A mined-case shape, hand-built. In production friction_miner.build_case produces this
+    from a real transcript moment; that path needs Postgres and history, which is exactly the
+    part this demo does not claim to prove."""
+    return {
+        "schema_version": 1,
+        "case_id": "demo_" + str(int(time.time())),
+        "org_id": int(os.environ.get("CORE_ORG_ID", "1")),
+        "status": "mined",
+        "user_wanted": correction,
+        "moment": {"prompt_text": prompt, "correction": correction, "blocks": []},
+        "quality": {"eligible_for_routing": True},
+        "source": {"transcript_path": "<demo>", "session_id": "demo"},
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--from-text", dest="text", help="use your own correction")
+    ap.add_argument("--prompt", default=DEFAULT_PROMPT,
+                    help="the prompt the resulting rule should fire on")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args()
+
+    correction = a.text or DEFAULT_CORRECTION
+    t0 = time.time()
+    out: dict = {"correction": correction}
+
+    import friction_router, friction_test_gate, friction_installer, friction_dispatch
+
+    # Everything writes into a throwaway state dir. The demo must never touch the live
+    # artifact set — a demo that mutates production is not a demo.
+    tmp = tempfile.mkdtemp(prefix="si-demo-")
+    os.environ["CLAUDE_PROJECT_DIR"] = tmp
+    (Path(tmp) / ".claude" / "state").mkdir(parents=True, exist_ok=True)
+    for mod in (friction_installer, friction_dispatch):
+        for attr in ("STATE", "ACTIVE", "PROCDIR", "PROCQDIR"):
+            v = getattr(mod, attr, None)
+            if isinstance(v, Path):
+                setattr(mod, attr, Path(str(v).replace(str(REPO), tmp)))
+
+    # THE FILE REDIRECTION ABOVE IS NOT ENOUGH, and the first version of this file claimed
+    # otherwise. friction_installer.install() calls si_project.upsert(), which opens a real
+    # Postgres connection to corebrain and writes a row — a path no amount of CLAUDE_PROJECT_DIR
+    # redirection touches. So the demo, run exactly as documented, would have written a
+    # demo_<timestamp> artifact into the LIVE artifact set and recompiled the active
+    # enforcement projection. sentinel-code caught it.
+    #
+    # It happened not to, because the install failed earlier for unrelated reasons — the
+    # live table still reads 36 rows, verified. That is luck, not design, and a demo whose
+    # safety depends on an unrelated failure is not safe.
+    #
+    # Stub the canonical write path explicitly. A demo that can reach production is not a demo,
+    # and a comment saying it cannot is worse than no comment.
+    try:
+        import si_project
+        si_project.upsert = lambda *a, **k: {"ok": True, "reason": "demo: DB write stubbed"}
+        si_project.project = lambda *a, **k: {"ok": True, "reason": "demo: projection stubbed"}
+    except Exception:
+        pass
+
+    # AND THE SECOND PATH, which the comment above originally claimed did not exist.
+    #
+    # friction_installer.install() also calls _fetch_corpus_prompts(org), which opens its own
+    # Postgres connection and SELECTs up to 150 real historical prompts. That is untouched by
+    # the write stub and by the STATE redirect — it checks neither. So the demo was performing
+    # an unannounced, unlogged read of real prompt data, which is precisely the class of read
+    # privacy.md requires an announce and an access-log entry for.
+    #
+    # sentinel-code found it after I had already "fixed" reachability once and asserted no
+    # other path existed. Stubbing the write and declaring victory is how the first version of
+    # this comment came to be wrong; enumerating every DB call in the path is the only thing
+    # that actually answers the question.
+    # Substitute the SAME file-based corpus the demo's own gate step uses, rather than a
+    # handful of neighbours: the re-gate inside install() requires >=40 prompts to prove
+    # specificity, and feeding it 8 makes the install fail for a reason that has nothing to
+    # do with the rule. Real prompts, read from transcripts on disk, no database.
+    #
+    # COLD START applies here too. install() RE-GATES internally, so on a Core with no history
+    # the stub handed it an empty list and the install failed with "no corpus sample available"
+    # — after the gate step had already passed and explained itself. Two different answers about
+    # the same corpus in one run. The fallback must be identical in both places or the demo
+    # contradicts itself. (2026-07-28 spawn dress rehearsal.)
+    try:
+        _corpus_cache = _real_prompts()
+        if len(_corpus_cache) < friction_test_gate.MIN_CORPUS:
+            _corpus_cache = SAMPLE_CORPUS
+        friction_installer._fetch_corpus_prompts = lambda *a, **k: _corpus_cache
+    except Exception:
+        pass
+
+    # TRIPWIRE ON THE DATABASE ITSELF, so "this demo touches no live data" is CHECKABLE rather
+    # than reviewed. Every stub above is a claim that a particular call site was found; this is
+    # the backstop for the call site nobody found. sentinel-code caught exactly that once —
+    # _fetch_corpus_prompts was opening its own connection after the write path had been stubbed
+    # and victory declared. Enumerating call sites is how that comment came to be wrong twice.
+    #
+    # connect_corebrain is the single primitive every DB path in the SI spine goes through, so
+    # poisoning it converts a silent unannounced read into a loud, attributable failure.
+    # (core-business, ask-2: "make it checkable instead of reviewed".)
+    # Evidence now lives in si_artifacts.evidence (Postgres), so install() writes it — which
+    # would hit the tripwire below on a sandboxed run. Stub both directions: the demo proves the
+    # install path, not the evidence store, and reaching a real DB is precisely what it must not
+    # do. (finding 9 moved this store into Postgres; finding 8 moved it out of the spec.)
+    try:
+        _demo_evidence = {}
+        friction_installer._write_evidence = (
+            lambda aid, payload, org=None: (_demo_evidence.__setitem__(aid, payload), True)[1])
+        friction_installer.read_evidence = lambda aid, org=None: _demo_evidence.get(aid, {})
+    except Exception:
+        pass
+
+    try:
+        import _env
+
+        def _no_db(*_a, **_k):
+            raise RuntimeError(
+                "si-demo attempted a real database connection. The demo is sandboxed and must "
+                "never touch live data — this means a code path reaches the DB without a stub. "
+                "Find it rather than removing this guard.")
+
+        _env.connect_corebrain = _no_db
+    except Exception:
+        pass
+
+    def show(step: str, detail: str) -> None:
+        if not a.json:
+            print(f"  {step:9} {detail}")
+
+    if not a.json:
+        print(f"\n  correction  {correction[:90]}")
+        print(f"  {'':9} {'(the kind of thing Nick says when something is wrong)':.<0}")
+        print()
+
+    # 1 ── ROUTE: correction -> a typed, conditioned rule
+    spec = friction_router.route(_case(correction, a.prompt), NEIGHBOURS)
+    if not spec:
+        show("ROUTE", "no rule derivable — the correction was not specific enough")
+        out["routed"] = False
+        print(json.dumps(out) if a.json else "")
+        return 1
+    cond = [c.get("value") for c in (spec.get("condition", {}).get("all") or [])
+            if c.get("op") == "prompt_regex"]
+    out["spec"] = {"type": spec.get("type"), "event": spec.get("event"),
+                   "conditions": cond, "effect": spec.get("effect", {}).get("mode")}
+    show("ROUTE", f"{spec.get('type')} on {spec.get('event')}, fires when {cond}")
+
+    # 2 ── GATE: reject it if it would fire too broadly on REAL past prompts
+    #
+    # The router builds its own examples and attaches them as spec._examples — production
+    # pops them off in friction_loop. Rebuilding them here would test a different rule than
+    # the one being installed, so the demo uses exactly what production uses.
+    examples = spec.pop("_examples", None)
+    if not examples:
+        show("GATE", "router produced no examples — cannot gate")
+        print(json.dumps(out) if a.json else "")
+        return 1
+
+    # The specificity check is grounded against this Core's ACTUAL past prompts, not against
+    # the neighbours above. That is the part that makes an install meaningful: a rule has to
+    # fire on <=3% of things Nick really said, or it is rejected as over-broad.
+    corpus = _real_prompts()
+    # COLD START. A Core with no history cannot prove specificity against its operator, so it
+    # falls back to the labelled sample and says so unmistakably. Never silently — the whole
+    # value of this demo is that the gate is real, and a reader who thinks a sample corpus is
+    # the operator's own history has been misled about the one thing that matters.
+    cold = len(corpus) < friction_test_gate.MIN_CORPUS
+    if cold:
+        corpus = SAMPLE_CORPUS
+    ok, why = friction_test_gate.gate(spec, examples, corpus)
+    out["corpus_size"] = len(corpus)
+    out["cold_start"] = cold
+    out["gate"] = {"passed": bool(ok), "why": why}
+    if cold:
+        # SHOW THE GATE REJECTING, don't just assert that it can. A pass proves nothing on its
+        # own — the reader cannot tell a discriminating test from a rubber stamp by watching it
+        # say yes. So run an OVER-BROAD variant of the same rule first, the kind a careless
+        # router would emit, and show it being refused. Then show the specific one accepted.
+        #
+        # This makes the cold demo prove MORE than the warm one on the axis a skeptic cares
+        # about: a warm pass is invisible, a cold rejection is watchable.
+        # (core-business, ask-2 adversarial read.)
+        broad = json.loads(json.dumps(spec))
+        broad["condition"] = {"all": [{"op": "event_is", "value": "UserPromptSubmit"},
+                                      {"op": "prompt_regex", "value": r"\b(make|show|look|give)\b"}]}
+        b_ok, b_why = friction_test_gate.gate(broad, examples, corpus)
+        out["overbroad_probe"] = {"passed": bool(b_ok), "why": b_why}
+        show("GATE", f"over-broad variant  {'ACCEPTED' if b_ok else 'REJECTED'} — {b_why}")
+        show("", f"specific rule       {'ACCEPTED' if ok else 'REJECTED'} — {why}")
+        show("", f"both checked against the same {len(corpus)} SAMPLE prompts. The corpus contains")
+        show("", "near-misses on purpose, so the gate can fail and just did.")
+        show("", "")
+        show("", "What this does NOT yet test: specificity against YOUR history. That")
+        show("", f"begins once you have ~{friction_test_gate.MIN_CORPUS} prompts of your own, and the 3% limit")
+        show("", "stops being trivial at that point.")
+        if b_ok:
+            # If the over-broad probe PASSES, the corpus has lost its discriminating power and
+            # this whole section is theatre. Say so rather than printing a reassuring line.
+            show("", "")
+            show("", "WARNING: the over-broad probe was ACCEPTED. The sample corpus has lost")
+            show("", "its near-misses and this gate demonstration proves nothing.")
+    else:
+        show("GATE", f"{'PASS' if ok else 'REJECT'} — {why}")
+        show("", f"checked against {len(corpus)} real past prompts")
+    if not ok:
+        show("", "rejected rules are not installed. That is the gate working.")
+        print(json.dumps(out) if a.json else "")
+        return 0
+
+    # 3 ── INSTALL
+    res = friction_installer.install(spec, examples)
+    out["install"] = res
+    show("INSTALL", f"{res.get('reason')} ({res.get('artifact_id', '')[:20]})")
+    if not res.get("ok"):
+        print(json.dumps(out) if a.json else "")
+        return 1
+
+    # 4 ── DISPATCH: the rule now fires on a matching prompt, unprompted
+    payload = json.dumps({"prompt": a.prompt, "session_id": "demo"})
+    import io
+    saved = sys.stdin
+    sys.stdin = io.StringIO(payload)
+    try:
+        rc = friction_dispatch.run("UserPromptSubmit")
+    finally:
+        sys.stdin = saved
+    out["dispatch"] = {"exit": rc}
+    show("DISPATCH", f"rule fired on a fresh prompt (exit {rc})")
+
+    out["elapsed_s"] = round(time.time() - t0, 3)
+    if a.json:
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"\n  {out['elapsed_s']}s — correction to enforced rule.\n")
+        # The closing claim must match which corpus actually ran. On a cold Core the words
+        # "real prompts" are simply false, and a summary that overstates by one adjective is
+        # how an honest demo becomes a dishonest one.
+        _src = "SAMPLE prompts" if cold else "real prompts"
+        print(f"  What this shows: a rule was WRITTEN, TESTED against {_src} it must not")
+        print("  fire on, INSTALLED, and then FIRED. Every stage is the production code path.")
+        print("  What it does not show: mining that correction out of a real transcript, or")
+        print("  fitness measured over weeks. For those: bin/grade-intent.py, grade-gate.py --all.")
+        if cold:
+            print("  This Core is NEW: the gate ran against a built-in sample, so nothing here")
+            print("  is yet a measurement of how you work. It becomes one as you use it.")
+        print("")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

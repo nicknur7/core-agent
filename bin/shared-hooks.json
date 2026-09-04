@@ -1,0 +1,31 @@
+{
+  "_comment": "Universal hook registrations every Core must have. apply-shared-hooks.py idempotently + additively merges these into each Core's .claude/settings.json. WHY THIS EXISTS: hook *scripts* live in the shared .claude/hooks/ dir (they rsync to every Core + fork), but their *registration* lives in settings.json, which is per_core_keep and NEVER propagates. So a fork gets the scripts on disk but unwired — recall + the discipline gates never fire. This merge is the transport for the wiring. Keyed on the `match` substring of the command: a hook is added only if NO existing entry in that event already contains `match`. Entries land in each event's matcher-'' block. STRICTLY ADDITIVE — never removes, reorders, or edits per-Core entries. The trust-root pretooluse-guard is NEVER auto-registered (per_core_keep, manual install by design); task-brief-reminder/tracking-orphan-guard stay per-Core (matcher-specific, minor). PreToolUse EXCEPTION (2026-06-09, Nick-approved): approval-gate.py IS auto-registered on PreToolUse — it is a non-trust-root binding BEHAVIOR gate wanted on every Core, self-filters tools internally (blocks only mutating tools while armed; read-only tools pass, so a matcher-'' registration is safe), and is brain-verified stateless + env-var-driven. This does NOT touch pretooluse-guard (different match key).",
+  "version": 2,
+  "events": {
+    "SessionStart": [
+      { "match": "sync-from-baseline.sh", "command": "bash \"$CLAUDE_PROJECT_DIR/bin/sync-from-baseline.sh\" --quiet", "timeout": 30, "prepend": true, "writer_skip": true },
+      { "match": "session-start-check.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-check.sh\"", "timeout": 15 },
+      { "match": "learned-resynth-trigger.sh", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/learned-resynth-trigger.sh\"", "timeout": 20 }
+    ],
+    "UserPromptSubmit": [
+      { "match": "rot-check.py", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/rot-check.py\"", "timeout": 10 },
+      { "match": "verification-trigger.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/verification-trigger.sh\"", "timeout": 5 },
+      { "match": "brain-recall-trigger.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-recall-trigger.sh\"", "timeout": 5 },
+      { "match": "stop-signal-gate.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-signal-gate.sh\"", "timeout": 5 },
+      { "match": "approval-gate.py", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/approval-gate.py\"", "timeout": 5 }
+    ],
+    "PreToolUse": [
+      { "match": "approval-gate.py", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/approval-gate.py\"", "timeout": 5 }
+    ],
+    "Stop": [
+      { "match": "say-do-gap.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/say-do-gap.sh\"", "timeout": 5 },
+      { "match": "state-claim-gate.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/state-claim-gate.sh\"", "timeout": 5 },
+      { "match": "time-claim-gate.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/time-claim-gate.sh\"", "timeout": 5 },
+      { "match": "recall-gate.py", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/recall-gate.py\"", "timeout": 5 },
+      { "match": "stop-hook.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-hook.sh\"", "timeout": 60 }
+    ],
+    "SessionEnd": [
+      { "match": "defensive-save.sh", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/defensive-save.sh\"", "timeout": 60 }
+    ]
+  }
+}

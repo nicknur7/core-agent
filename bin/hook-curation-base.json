@@ -1,0 +1,275 @@
+{
+  "_comment": "Base per-hook curation shared across all Cores (L1). Intrinsic fields only (event/priority/telemetry_class/plain/origin) — identical on every Core because they describe what the hook IS, not this Core's telemetry. seed-hook-dispositions.py composes this with a Core's registered hooks to emit .claude/state/hook-dispositions.json; per-Core disposition/action/rationale/live are curated locally, never seeded from life. Harvested from life's hook-dispositions.json 2026-07-10.",
+  "hooks": {
+    "pretooluse-guard": {
+      "event": "PreToolUse",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "Before any outward action (git push, curl, GitHub or Playwright writes), requires a Sentinel security token so nothing escapes to the outside world without explicit review.",
+      "origin": {
+        "created": "2026-04-24",
+        "why": "Phase 1 security hardening after a threat-model audit — gates outward actions (git push, osascript, WebFetch, curl) behind SHA-256 Sentinel tokens so no side-effecting tool fires without review."
+      }
+    },
+    "sentinel-approve": {
+      "event": "helper",
+      "priority": "med",
+      "telemetry_class": "infra",
+      "plain": "After Sentinel approves an action, writes a one-time cryptographic token so the security gate lets exactly that approved command through on the next attempt.",
+      "origin": {
+        "created": "2026-04-24",
+        "why": "Companion to pretooluse-guard — writes the per-exact-command approval token that completes the Sentinel handshake (approval is per-command, not per-intent)."
+      }
+    },
+    "session-start-check": {
+      "event": "SessionStart",
+      "priority": "low",
+      "telemetry_class": "signal",
+      "plain": "At every session open, injects the current clock, stale-memory warnings, and pending self-improvement items so the session starts grounded in accurate context.",
+      "origin": {
+        "created": "~2026-05-04 (hardened 2026-06-09)",
+        "why": "Surfaces stale-state warnings at session open. 2026-06-09: source-guarded after a compact/resume re-fire re-stamped .session-start and destroyed in-flight work."
+      }
+    },
+    "verification-trigger": {
+      "event": "UserPromptSubmit",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "When a prompt asks to check, review, or explain system state, injects a reminder to read the actual file first rather than answering from memory.",
+      "origin": {
+        "created": "2026-05-04",
+        "why": "Born the night 28 anti-pattern failures were logged in one day (rule #1 violated in the same response that added it to CLAUDE.md). Forces a read before any state-asserting answer."
+      }
+    },
+    "brain-recall-trigger": {
+      "event": "UserPromptSubmit",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "When a prompt names a known person or project or uses past-conversation phrases, injects a reminder to query the memory vault before responding so prior context isn't invented.",
+      "origin": {
+        "created": "2026-05-15",
+        "why": "Shipped after the operator asked why the brain had been built if it wasn't even being used, when Core synthesized a Jordan profile without querying it."
+      }
+    },
+    "stop-signal-gate": {
+      "event": "UserPromptSubmit",
+      "priority": "med",
+      "telemetry_class": "signal",
+      "plain": "When a prompt contains an unambiguous halt or frustration signal, injects a hard-stop directive to drop the current approach and re-read what was actually asked.",
+      "origin": {
+        "created": "2026-06-05",
+        "why": "Structural escalation after SI fitness data showed correction-stop-execution / explicit-no never graduated under prose rules. Hard halt on unambiguous stop/frustration signals."
+      }
+    },
+    "learned-classifier": {
+      "event": "UserPromptSubmit",
+      "priority": "med",
+      "telemetry_class": "signal",
+      "plain": "When a prompt signals a correction, recall demand, or model-routing complaint, injects the matching behavioral contract listing required and forbidden moves for that situation.",
+      "origin": {
+        "created": "2026-06-05",
+        "why": "Preventive (inject) half of the learned-workflow layer — built when promoting corrections into prose rules produced zero graduation (same classes fired at the same rate post-promotion)."
+      }
+    },
+    "rot-check": {
+      "event": "UserPromptSubmit",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "After many turns, measures the AI's behavioral stability and when it drops below threshold re-injects all baseline rules to prevent drift from its instructions.",
+      "origin": {
+        "created": "2026-05-14",
+        "why": "Built after research into the Rath 2026 agent-drift framework when the operator said not to defer and to test it all. Demand-side Core-ASI v2 over 50-turn windows; ABA re-anchors below tau."
+      }
+    },
+    "approval-gate": {
+      "event": "UserPromptSubmit+PreToolUse",
+      "priority": "low",
+      "telemetry_class": "signal",
+      "plain": "After a redirect, blocks all file writes until the operator explicitly says go or yes, so the AI can't barrel through a plan that was just rejected.",
+      "origin": {
+        "created": "2026-06-08",
+        "why": "Fixes the 'acknowledgment escape hatch' — old gate let any 'you're right, fixing it' text continue execution. Requires an explicit approval token, not Core's own ack."
+      }
+    },
+    "recall-first-gate": {
+      "event": "PreToolUse",
+      "priority": "low",
+      "telemetry_class": "signal",
+      "plain": "When a brain-recall reminder fired, blocks any file write until a genuine brain query runs first, making memory-grounded reading mandatory before acting.",
+      "origin": {
+        "created": "2026-06-09",
+        "why": "Contract-binding fix 1 — moves recall enforcement from 'catch bad answer at Stop' to 'force the right first move': mutations refused until a read runs after a recall trigger."
+      }
+    },
+    "model-pin-gate": {
+      "event": "PreToolUse",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "When three or more subagents spawn without a model pin in three minutes, blocks the third so costly fan-outs can't silently inherit an expensive premium model.",
+      "origin": {
+        "created": "2026-06-09",
+        "why": "Contract-binding fix 4 — fan-outs inherit the session model, so an unpinned batch on Fable runs all-Fable. Blocks 3rd+ unpinned spawn."
+      }
+    },
+    "task-brief-reminder": {
+      "event": "PreToolUse",
+      "priority": "low",
+      "telemetry_class": "signal",
+      "plain": "Before each subagent dispatch, injects reminders about brief quality and write-path testing, since those failures each wasted large amounts of tokens when forgotten.",
+      "origin": {
+        "created": "2026-05-05",
+        "why": "Built after 3 lessons each costing 100K+ tokens recurred despite being in lessons.md (the 8-subagent sandbox failure ~640K-1M tokens). Just-in-time brief reminder before each Task call."
+      }
+    },
+    "tracking-orphan-guard": {
+      "event": "PreToolUse",
+      "priority": "low",
+      "telemetry_class": "signal",
+      "plain": "Blocks writing a tracking-named file (backlog, queue, pending, dashboard) unless a keeper already references it, preventing unmaintained tracking surfaces that drift and rot.",
+      "origin": {
+        "created": "2026-05-16",
+        "why": "Built the session that traced ~half of all drift bugs to 'tracking surface without a keeper' — and Core created backlog.md (another orphan) in that same session. Blocks new tracking files lacking a keeper."
+      }
+    },
+    "learned-stopguard": {
+      "event": "PreToolUse",
+      "priority": "med",
+      "telemetry_class": "signal",
+      "plain": "When a halt signal precedes an immediate file edit with no text response at all, blocks the edit to catch the pure barrel-through case before damage lands.",
+      "origin": {
+        "created": "2026-06-05",
+        "why": "Resynth-surfaced guard for the pure-barrel case: Nick sent an unambiguous HALT and Core went straight to editing with zero text (no ack possible). Narrowly scoped to protect the daily driver."
+      }
+    },
+    "recall-satisfied": {
+      "event": "PostToolUse",
+      "priority": "low",
+      "telemetry_class": "infra",
+      "plain": "After a genuine brain query runs, clears the recall-required marker so the recall gate unlocks and writes are permitted again for the rest of that turn.",
+      "origin": {
+        "created": "2026-06-09",
+        "why": "Counterpart to recall-first-gate — clears the marker once any read runs, so the gate doesn't permanently block after the first read."
+      }
+    },
+    "say-do-gap": {
+      "event": "Stop",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "After each response, if the AI claimed to save or log something but wrote no file that turn, blocks the response to force completing the promised action.",
+      "origin": {
+        "created": "2026-05-04",
+        "why": "Shipped the 28-failure night — enforces anti-pattern rule #3: action-claim language ('I'll save', 'saving now') with no same-turn Write/Edit is blocked."
+      }
+    },
+    "state-claim-gate": {
+      "event": "Stop",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "After each response, if the AI asserted something is done, broken, or running without reading any file that turn, blocks it to force verification before the claim stands.",
+      "origin": {
+        "created": "2026-05-05",
+        "why": "Built the morning the operator said Core felt broken, after 6 state-claim-from-memory failures in one conversation — the rule was named but never built. Blocks state claims with no same-turn read."
+      }
+    },
+    "time-claim-gate": {
+      "event": "Stop",
+      "priority": "med",
+      "telemetry_class": "signal",
+      "plain": "After each response, if the AI stated a time or duration with no same-turn date command or session-file read, blocks it to force sourcing time from a real tool.",
+      "origin": {
+        "created": "2026-05-15",
+        "why": "spec-time-awareness Phase 3 — every time-of-day/duration claim must be sourced from a tool call this turn; Core kept making confident-but-wrong time claims from memory."
+      }
+    },
+    "recall-gate": {
+      "event": "Stop",
+      "priority": "low",
+      "telemetry_class": "signal",
+      "plain": "After a response claiming prior decisions or discussions, blocks it if no brain query ran that turn, because local summaries drift from what was actually said.",
+      "origin": {
+        "created": "2026-06-08",
+        "why": "Built after the 6/04 'Nick declined the hook' claim turned out to be Core's own write-up, not the brain. Blocks decision/history claims unless a brain query ran this turn (local summaries drift)."
+      }
+    },
+    "learned-validator": {
+      "event": "Stop",
+      "priority": "med",
+      "telemetry_class": "signal",
+      "plain": "After a halt signal triggers a response that edits a file with no acknowledgment written, blocks it for executing on momentum without confirming the redirect.",
+      "origin": {
+        "created": "2026-06-05",
+        "why": "Blocking (Stop) half of the learned-workflow layer — the single deterministic clause: HALT signal + mutating tool + no acknowledgment = block. Conservative to protect the daily driver."
+      }
+    },
+    "learned-recallguard": {
+      "event": "Stop",
+      "priority": "med",
+      "telemetry_class": "signal",
+      "plain": "After the AI answers an explicit recall demand with zero tool calls, blocks it for pure paraphrase-from-memory instead of reading the brain or session files.",
+      "origin": {
+        "created": "2026-06-05",
+        "why": "Resynth-surfaced guard: Nick's prompt was a clear recall-miss ('you should know', 'go look in the brain') AND Core answered with zero tool calls — the pure paraphrase-from-memory case."
+      }
+    },
+    "stop-hook": {
+      "event": "Stop",
+      "priority": "high",
+      "telemetry_class": "infra",
+      "plain": "When a session close is queued, runs the commit engine and keeps the sentinel if the commit failed, so a blocked close retries next turn instead of getting stranded.",
+      "origin": {
+        "created": "~pre-2026-05-04 (refactored 2026-05-28)",
+        "why": "Originally the close commit engine; refactored 2026-05-28 into a thin shim (it and defensive-save were duplicate commit engines). Acts only when /close-core queued a close."
+      }
+    },
+    "learned-resynth-trigger": {
+      "event": "SessionStart",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "At session start, if the correction corpus has grown past threshold, shows mandatory instructions to re-tune behavioral contracts from this Core's own mistakes rather than generic defaults.",
+      "origin": {
+        "created": "2026-06-05",
+        "why": "Full-auto self-tune (Nick chose auto over an approval gate): when the correction corpus passes threshold, re-synthesizes contracts from that Core's own org-scoped corpus with no manual step."
+      }
+    },
+    "defensive-save": {
+      "event": "SessionEnd",
+      "priority": "med",
+      "telemetry_class": "infra",
+      "plain": "When a session ends with no proper close command, commits pending changes and stamps session state so work isn't lost when the user walks away.",
+      "origin": {
+        "created": "2026-05-05 (refactored 2026-05-28)",
+        "why": "Extended after a close regression left sessions without end-markers; stamps current-state + appends end-marker when Nick walks away without /close-core. Refactored into a shim over session-lifecycle.sh."
+      }
+    },
+    "shared-write-guard": {
+      "event": "PreToolUse",
+      "priority": "med",
+      "telemetry_class": "signal",
+      "plain": "On peer Cores that only pull from the shared baseline, blocks edits to shared files and points to the writer Core, preventing sync overwrites from silently undoing local fixes.",
+      "origin": {
+        "created": "2026-06-23",
+        "why": "2026-06-23->25 Core-partitioning: keep peer Cores from diverging baseline-shared code; baseline-wins integrity."
+      }
+    },
+    "auto-trigger-suggest": {
+      "event": "UserPromptSubmit",
+      "priority": "low",
+      "telemetry_class": "signal",
+      "plain": "When repeated failed attempts on a design task are detected, suggests escalating to a structured design workflow rather than another one-shot tweak — a nudge, never an auto-spend.",
+      "origin": {
+        "created": "2026-06-29",
+        "why": "Surface a gentle 're-plan?' suggestion when a prompt looks like a design/approach swing, without blocking."
+      }
+    },
+    "sync-from-baseline": {
+      "event": "SessionStart",
+      "priority": "high",
+      "telemetry_class": "signal",
+      "plain": "On session start (puller Cores only), pulls shared code from the nicknur7/core-agent baseline so the Core runs current universal logic; the writer (life) does not register it.",
+      "origin": {
+        "created": "2026-05-19",
+        "why": "Multi-Core baseline sync — puller Cores inherit universal hook/rule/agent code from the baseline (baseline-wins) without hand-copying; writer pushes, pullers pull."
+      }
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "_why": [
+    "SINGLE SOURCE OF TRUTH for 'which subagent transcripts are the pipeline's own exhaust'.",
+    "",
+    "Exhaust = a transcript whose entire content is a brief WE wrote, about work already",
+    "ingested. Extracting it is not merely wasteful, it is corrupting: workers obey the",
+    "embedded brief as their own task, the contract's rules land in the brain as Nick's",
+    "decisions, and — the real killer — extraction spawns workers whose transcripts become",
+    "new pending evidence, so 'nothing pending after close' is unreachable. Hub refresh has",
+    "the same shape: refreshing a hub indexed the refresh run as new evidence ON that hub,",
+    "so it re-drifted immediately (observed 3x in 2 days on sentinel-security-review).",
+    "",
+    "WHY THIS FILE EXISTS AT ALL (2026-07-28). The filter lived as a regex inside",
+    "extract-pending.sh listing exact brief-opening phrases, while the briefs themselves were",
+    "written by hand from prose directives in a DIFFERENT file. Only the extraction producer",
+    "was ever told its required phrase; the hub-refresh producer was never told any phrase, so",
+    "each close invented one. Three phrasings shipped across closes and the regex matched none:",
+    "it wanted 'Compiled-truth refresh', they all said 'Compiled-truth HUB refresh'. One word.",
+    "22 of 42 pending files were leaked exhaust, silently, for two days — exactly what the",
+    "regex's own comment warned would happen if anyone reworded that first line.",
+    "",
+    "Two phrase lists that must agree, kept in two files, is a drift generator. So: one file,",
+    "read by the detector AND quoted by every dispatch directive. Adding a producer means",
+    "adding it HERE, once."
+  ],
+  "opening_phrases": {
+    "_role": "Matched against the transcript's first_message frontmatter, ANCHORED at its start. Anchoring is deliberate: a session that merely quotes one of these phrases mid-body is real evidence and must still extract.",
+    "phrases": [
+      "Brain-graph extraction worker",
+      "RETRY EXTRACTION",
+      "REPAIR TASK",
+      "Compiled-truth refresh",
+      "Compiled-truth hub refresh",
+      "You are helping refresh 'compiled truth'",
+      "Graph-node extraction",
+      "Decision-assertion interpretation worker",
+      "Brain body extraction worker",
+      "You are the assertion-extraction pass",
+      "Reconstruct one slice of a build timeline",
+      "You are distilling raw user corrections into CANONICAL ASKS",
+      "Learned-contract resynth worker",
+      "You are the consolidation pass of a personal agent's learning",
+      "Mechanical extraction task. READ-ONLY",
+      "Assertion extraction worker. READ-ONLY",
+      "Body-extraction worker",
+      "Body-extraction repair retry",
+      "You are extracting durable ASSERTIONS"
+    ],
+    "_notes": [
+      {
+        "Compiled-truth hub refresh": "the phrasing 22 leaked files actually used (2026-07-26 -> 07-28)",
+        "You are helping refresh 'compiled truth'": "a third hub-refresh phrasing from an earlier close",
+        "Graph-node extraction": "the 2026-07-28 mis-briefed extraction run — recorded, not blessed; the mandated opening is 'Brain-graph extraction worker'",
+        "Brain body extraction worker": "ops 2026-08-04: body-extraction producer reworded 'Brain-GRAPH' to 'Brain-BODY' and leaked 3 transcripts into the 08-02 close. RECORDED, NOT BLESSED — the mandated opening is still 'Brain-graph extraction worker'. Third occurrence of the one-word-drift class.",
+        "You are the assertion-extraction pass": "ops 2026-08-04: assertion producer was never told any phrase at all (same root cause as hub-refresh). The ['assert-batch-','subject_key'] structural group missed it because that worker reads its batch inline instead of naming the batch file in its brief.",
+        "Reconstruct one slice of a build timeline": "life 2026-08-04: the timeline-reconstruction producer was never told any phrase — same root cause as hub-refresh and ops's assertion pass. Leaked 6 transcripts into life's pending pool. Truncated to the stable prefix: the full opening interpolates the project name ('for Core, a self...'), so anchoring the whole line would miss the same worker run for any other project.",
+        "You are distilling raw user corrections into CANONICAL ASKS": "life 2026-08-04: ask-miner's distiller producer, never told any phrase. Leaked 4 transcripts. This is the SAME ask-miner that school flagged for asserting 'Recurring ask (3x)' on a single-case test set — two independent defects in one component.",
+        "Learned-contract resynth worker": "life 2026-08-04: learned-resynth-trigger.sh dispatched a worker with NO mandated phrase, so it opened 'Read-only task. Do NOT write any files' and leaked into ops's backlog. Mandating this phrase is the fix; the old opening is deliberately NOT registered because anchoring it would swallow every legitimate read-only brief (ops's call, and it is right)."
+      },
+      "2026-08-28 — core-business reported 13 of 15 pending files were pipeline workers and asked for SIX openings. Only these TWO were added. The other four — 'Review this outward-facing action for core-<seat>', 'Sentinel review of an outward-facing action', 'Close-reconciler run for core-<seat>', 'Adversarial review of a multi-Core baseline PULL' — are Sentinel and close-reconciler briefs, and extract-pending.sh's own boundary comment excludes them from this exclusion by name: \"C12's evidence was about Sentinel/census/research subagents, which carry real signal and still flow through the gate\". Adding them would have REVERSED Nick's 2026-07-25 extractor-as-gate call while calling it a refinement, on the same measured evidence that 62-89% of subagent graph nodes are unique and ~half are genuine signal."
+    ],
+    "_note_2026_08_08": "core-business (#700) asked for Sentinel transcripts to be excluded and core-finance (#704) for the close-reconciler. Both conflict with Nick's 2026-07-25 extractor-as-gate decision and with C12's measured evidence, so neither was applied. A third addition — 'Read the spec at /private/tmp/' — was also DROPPED on sentinel-code's ASK: unlike every other entry here it matches no dispatcher anywhere in the tree, and it is a directory-prefix match on the generic per-session scratch path, so it would let ANY subagent brief opening that way dodge both indexing and the new first-occurrence alarm. It was the broadest entry in a list whose entries are otherwise verbatim worker signatures, and I had added it in the same commit that reverted the Sentinel patterns for being too broad. What ships instead is the detector change: an unrecognized subagent opening is surfaced on its FIRST occurrence rather than only after 3 repeats. That is what makes the catch-all phrase unnecessary — the alarm now asks about the very transcripts the phrase would have silenced.",
+    "patterns": [
+      "Brain[- ]?graph (?:body-)?extraction worker|Brain body extraction worker"
+    ],
+    "_patterns_note": [
+      "Regexes, NOT escaped — for a PIPELINE-WORKER family whose brief wording varies per invocation. Empty on purpose as of 2026-08-08: the Sentinel and close-reconciler patterns added earlier that day were REVERTED, because extract-pending.sh states the boundary explicitly — exclusion covers 'the pipeline's own workers', and C12's measured evidence was that Sentinel/census/research subagents carry real signal and must flow through.",
+      "2026-08-28 — core-finance measured 13 of 14 pending files on its seat were worker exhaust (93%), four of them the GRAPH EXTRACTOR'S OWN WORKERS queued as evidence FOR the graph extractor, pending 20 days. Cause: the live brief opens 'Brain graph body-extraction worker' — a THIRD variant matching neither 'Brain-graph extraction worker' (hyphen, no 'body-') nor 'Brain body extraction worker' (no 'graph'). Two near-misses were already configured and neither fired. life was worse: 30 vault files carry the unmatched variant. Fixed with a PATTERN rather than a fourth literal, because `patterns` exists for exactly this — 'worker families whose brief wording varies per invocation' — and a literal list loses to prose one rewording at a time. finance also asked for 'Review a baseline PULL for core-' and 'Reconcile core-' — DECLINED, same boundary as core-business's four: those are sentinel-code and close-reconciler briefs, which extract-pending.sh:145 names as carrying real signal and still flowing through the gate."
+    ],
+    "_note_consolidation_worker": "Added 2026-08-08 on core-business's request (#737). consolidate_sessions.py's OWN extraction brief — the mandatory 2c worker — which was never told a phrase. VERIFIED before adding, using the standard sentinel-code applied to catch my bad entry an hour earlier: the string traces to a real producer at scheduling/brain-pg/consolidate_sessions.py:339 (BRIEF = \"\"\"You are the consolidation pass...\"\"\"). That is what distinguishes it from the 'Read the spec at /private/tmp/' entry I dropped, which matched no dispatcher anywhere and was a directory prefix rather than a worker signature. Same class as the already-registered 'You are distilling raw user corrections into CANONICAL ASKS' and 'Reconstruct one slice of a build timeline'. Truncated before the following word, which varies. FOUND BY the first-occurrence alarm on business's very first close after that fix shipped — it caught this leak at 1 occurrence instead of waiting for 3, which is exactly the failure core-finance identified in the old repetition threshold.",
+    "_note_2026_09_02": "Three phrases added for core-school (bus #5862, verified independently by reading first_message on each of the four flagged transcripts rather than trusting the detector's truncation). These are the HISTORICAL TAIL that CORE-PIPELINE-EXHAUST/v1 cannot retroactively cover: the dispatcher now emits the token so new workers are caught, but transcripts written by a PRE-TOKEN close carry no marker and re-detect at every close forever until the phrase lands here. school correctly refused to extract them and refused to patch the filter locally — scheduling/graphify-brain/ is in shared.dirs and that seat is a puller, so a local fix is clobbered on the next pull. Checked while here: business's two from bus #1442 ('Mechanical extraction task', 'Assertion extraction worker') ARE already covered — their transcripts carry the '. READ-ONLY' suffix the shipped phrases include, so school's note that business is still leaking is stale."
+  },
+  "structural_signatures": {
+    "_role": [
+      "Prose-independent backstop. A phrase list can only ever describe briefs already written;",
+      "the NEXT reworded brief leaks before anyone notices. These match on what a worker",
+      "transcript unavoidably CONTAINS — the pipeline's own file paths — so a producer that",
+      "invents new wording is still caught. All terms in a group must appear in the head.",
+      "Kept narrow enough that a genuine session discussing the pipeline is not swallowed:",
+      "the terms must co-occur in the first 1500 chars, i.e. inside the brief itself."
+    ],
+    "groups": [
+      [
+        "pending-batch-",
+        "chunk-body-"
+      ],
+      [
+        "refresh-batch-",
+        "compiled truth"
+      ],
+      [
+        "refresh-batch-",
+        "compile-truth-refresh"
+      ],
+      [
+        "assert-batch-",
+        "subject_key"
+      ],
+      [
+        "resynth-brief.json",
+        "required_shape"
+      ]
+    ]
+  },
+  "leak_alarm": {
+    "_role": [
+      "Makes the NEXT drift loud instead of silent. If several pending files share a near",
+      "identical brief opening, that is a producer whose phrase stopped matching — the exact",
+      "failure this file was created after. The detector prints EXHAUST-LEAK-SUSPECT; it does",
+      "NOT auto-exclude, because auto-excluding on repetition would let a legitimately",
+      "repetitive class of real evidence vanish unread."
+    ],
+    "min_identical_openings": 3,
+    "opening_prefix_chars": 60
+  },
+  "dispatch_marker": {
+    "_role": [
+      "MACHINE-READABLE SELF-IDENTIFICATION, added 2026-08-28 on core-business's design (bus #5837).",
+      "",
+      "Every mechanism above matches PROSE the producer happened to write. That is the standing defect:",
+      "'only the EXTRACTION producer was ever told its required phrase — the hub-refresh producer was",
+      "told none, invented three phrasings, and this regex matched none of them'. business hit the same",
+      "thing from the other side — it hand-wrote three sentinel-code briefs in its own wording and each",
+      "became a new unrecognised opening — and named the asymmetry that makes it unfixable downstream:",
+      "only the WRITER Core can register a phrase, so the Core producing the leak structurally cannot",
+      "close it.",
+      "",
+      "A token is not paraphrasable. You can reword 'Brain-graph extraction worker' by accident; you",
+      "cannot accidentally reword CORE-PIPELINE-EXHAUST/v1. So a producer declares WHAT IT IS instead of",
+      "the detector guessing from how it opened.",
+      "",
+      "SCOPE — THIS IS RECOGNITION, NOT POLICY, AND THE DISTINCTION IS LOad-BEARING. The marker changes",
+      "HOW a pipeline worker is identified. It does NOT change WHICH producers are excluded, and it must",
+      "never be stamped on a Sentinel, census, or research brief. extract-pending.sh:145 records why:",
+      "C12's measured evidence is that those carry real signal and still flow through the gate, and",
+      "62-89% of subagent graph nodes are unique. Stamping one would delete knowledge and silently",
+      "reverse Nick's 2026-07-25 extractor-as-gate decision.",
+      "",
+      "Phrases and structural_signatures STAY. They cover every brief written before this existed, and",
+      "removing them would re-leak the entire back catalogue."
+    ],
+    "token": "CORE-PIPELINE-EXHAUST/v1",
+    "_where": "Emit anywhere in the first 1500 chars of the worker brief — the detector reads only the head."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "_comment": "Declared manual-only scripts. A script may legitimately be run by hand — but it must SAY SO here, with a reason. Undeclared unreachable scripts fail bin/wiring-audit.py. Created 2026-08-28 after compile-truth-refresh.py, corroborate.py and artifact_utility were each found built-but-never-wired; the shared defect was that nothing checked reachability.",
+  "manual_only": {
+    "bin/repartition-misfiled.py":              "repair tool — moves entities filed into the wrong Core. Run when a misfile is found, not on a cadence.",
+    "bin/backfill-artifact-evidence.py":        "one-time backfill to make already-installed artifacts tunable.",
+    "bin/reverify-provenance.py":               "one-time re-classification of pre-fix corpus rows.",
+    "bin/null-calibration.py":                  "analysis: is a contract's install date special, or would any date show decay. Asked, not scheduled.",
+    "bin/correction-rate-clean.py":             "analysis: the defensible correction-rate number. Produces a figure for a human to read.",
+    "bin/si-record.py":                         "export the loop's real history, anonymized — run when publishing, not nightly.",
+    "bin/state-shapes.py":                      "fleet analysis of durable-state shapes. Investigative.",
+    "bin/test-core-manifest.py":                "test harness for the manifest generator.",
+    "bin/peer-review-checkout.sh":              "checks out a peer's branch for review — invoked by a human mid-review.",
+    "bin/queue-shared-push.sh":                 "queues a shared push; the push itself is the operator's own command by policy (sentinel-code Rule 1).",
+    "scheduling/brain-pg/teardown-org.py":      "destructive: drops a Core's partition. Must never be automatic.",
+    "scheduling/brain-pg/set-scope.py":         "admin: sets entity scope. Deliberate, manual.",
+    "scheduling/brain-pg/curate-eval-v2.py":    "curates the v2 eval set — a judgment task, not a job.",
+    "scheduling/claude-si/measure-existing-hooks.py": "three-stage precision/recall audit toolkit; each stage needs a human between.",
+    "scheduling/graphify-brain/eval-extractors.py":   "extractor evaluation harness. Run when changing extractors.",
+    "scheduling/system-health/hook-benchmark.py":     "Core-vs-naked-agent benchmark. Expensive; run deliberately.",
+    "bin/wiring-audit.py":                      "this audit itself — invoked by core-doctor.sh, which the audit cannot see as a caller of itself without recursing."
+  },
+  "_should_be_wired": {
+    "_comment": "Known-unwired and SHOULD run automatically. Tracked here so they cannot be forgotten again. Moving one of these to a real caller is the fix; deleting it from this list without wiring it is not.",
+    "scheduling/brain-pg/corroborate.py":       "WIRED 2026-08-28 into the nightly — cross-Core same_as bridge. Was frozen at 2026-07-07 for 52 days.",
+    "scheduling/graphify-brain/reconcile-vault.py": "dedups the brain vault by session/agent identity. Should run on the nightly heavy pass.",
+    "scheduling/brain-pg/verify-schema-checks.py":  "CI guard on schema CHECK constraints. Belongs in core-doctor.",
+    "bin/guard-conformance.py":                 "cross-Core conformance for pretooluse-guard. Belongs in the fleet health pass.",
+    "bin/ensure-verdict-contract.py":           "asserts every sentinel spec carries the canonical verdict contract. Belongs in core-doctor.",
+    "bin/audit-gap-check.py":                   "every baseline apply must have an audit entry. Belongs in the sync path.",
+    "bin/corpus-readiness.py":                  "per-seat corpus thresholds for the instruments that read it. Periodic.",
+    "bin/state-feeder.py":                      "gathers this Core's live operational state. Should feed the OS surface.",
+    "bin/system-inventory.py":                  "what this Core actually is, derived live. Periodic.",
+    "scheduling/brain-pg/export-team-brain.py": "builds team-brain.json for the Core OS Team Brain tab. Nightly.",
+    "scheduling/graphify-brain/extract-topics-and-tools.py": "extraction step for topic/tool nodes — verify whether the pipeline calls it under another name.",
+    "scheduling/graphify-brain/extract-project-meta.py": "same — verify pipeline coverage."
+  }
+}

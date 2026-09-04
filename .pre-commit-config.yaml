@@ -1,0 +1,40 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        args: ["-S", "warning"]
+        files: \.(sh|bash)$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+
+  - repo: local
+    hooks:
+      - id: lint-doc-paths
+        name: Lint markdown doc-path citations
+        entry: bash bin/lint-doc-paths.sh
+        language: system
+        types: [markdown]
+        pass_filenames: false
+
+      - id: lint-code-paths
+        name: Lint code path-hardcoding against registry
+        entry: bash bin/lint-code-paths.sh
+        language: system
+        types_or: [shell, python]
+        pass_filenames: false

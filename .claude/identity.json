@@ -1,0 +1,42 @@
+{
+  "_comment": "TEMPLATE identity for a fresh Core. Edit every value below before first use. This file is per_core_keep, so sync NEVER overwrites it and whatever you put here stays yours. It previously shipped as a real person's live finance Core — their name, email, home directory and brokerage allowlist — and it carried no hook_profile.role, which made reconcile-hooks.py exit 2. The sync path swallowed that error, so a fresh Core installed 12 of 37 hooks and had no self-improvement spine at all, with nothing reported. Both problems are fixed here. Keep this file generic if you ever push it upstream.",
+
+  "org_id": 1,
+  "_comment_org_id": "Tenant id for this Core in the corebrain Postgres. A standalone Core keeps 1. Only assign 2, 3, 4 ... if you run SIBLING Cores against the SAME database — the ids must be unique per Core or their memory and learned rules collide.",
+
+  "domain": "general",
+  "core_slug": "core",
+  "core_label": "core",
+
+  "user": {
+    "name": "YOUR_FIRST_NAME",
+    "full_name": "YOUR FULL NAME",
+    "contact_lookup_name": "YOUR FULL NAME",
+    "email": "you@example.com"
+  },
+
+  "assistant": {
+    "name": "Core"
+  },
+
+  "hook_profile": {
+    "role": "puller",
+    "_comment": "REQUIRED — must be exactly 'puller' or 'writer'. 'puller' syncs shared code FROM the baseline and never pushes back; that is correct for every Core except the single baseline writer. 'writer' is the one Core allowed to push shared code upstream. reconcile-hooks.py exits 2 on any other value, and that failure is silent, so a wrong value here costs you most of your hooks with no visible error.",
+    "overrides": {}
+  },
+
+  "sister_projects": [],
+  "_comment_sister_projects": "Optional sibling Cores on this machine, e.g. [{\"label\": \"work\", \"path\": \"/Users/you/Cores/work-core\"}]. Leave empty for a single Core.",
+
+  "webfetch_allowed_domains": [
+    "claude.ai",
+    "anthropic.com",
+    "docs.anthropic.com",
+    "support.claude.com",
+    "code.claude.com",
+    "platform.claude.com",
+    "github.com",
+    "raw.githubusercontent.com"
+  ],
+  "_comment_webfetch": "Domains Core may fetch WITHOUT a Sentinel review. Keep this list tight and add your own tools deliberately — anything here bypasses the gate."
+}

@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Pre-commit hook: auto-bump `Last updated:` stamp on memory files with body
+# changes. Per audit `tasks/core-audit-report-2026-05-11.md` Dim 3 finding #2:
+# "Last updated stamps drift silently from content. Stamps stay frozen while
+# content gets updated. SessionStart Check (g) flags >30d but the threshold
+# treats updated-but-unstamped files as fresh."
+#
+# Logic: for every staged memory file with frontmatter, check if anything
+# below the frontmatter changed. If yes AND the stamp wasn't bumped to today,
+# bump it + re-stage.
+#
+# Install: `git -C <repo> config core.hooksPath .claude/hooks/git`
+# (run by bin/install-deps.sh on first install).
+set -uo pipefail
+
+TODAY=$(date +%Y-%m-%d)
+BUMPED=()
+
+# Files to consider — anything with `Last updated:` in frontmatter.
+PATTERNS=(
+  "memory/projects/*.md"
+  "memory/about-me.md"
+  "memory/preferences.md"
+  "memory/goals.md"
+  "memory/skills-interests.md"
+  "memory/relationships/*/*.md"
+)
+
+# Collect staged files matching patterns
+STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)
+
+for f in $STAGED; do
+  matched=0
+  for pat in "${PATTERNS[@]}"; do
+    case "$f" in $pat) matched=1; break;; esac
+  done
+  [[ $matched -eq 0 ]] && continue
+  [[ ! -f "$f" ]] && continue
+
+  # File must have a `Last updated:` line in its frontmatter to qualify.
+  if ! head -20 "$f" | grep -qE '^Last updated:'; then
+    continue
+  fi
+
+  # Get the staged diff and check if any line below frontmatter changed.
+  # Frontmatter is the second `---` block. Use awk to skip past it.
+  diff_below=$(git diff --cached "$f" | awk '
+    BEGIN { in_fm=0; past_fm=0; dash_count=0; body_change=0 }
+    /^@@/ { hunk=1; next }
+    !hunk { next }
+    /^[-+]---$/ { dash_count++; if (dash_count==2) past_fm=1; next }
+    past_fm && /^[-+]/ && !/^[-+]Last updated:/ { body_change=1 }
+    END { print body_change }
+  ')
+
+  if [[ "$diff_below" == "1" ]]; then
+    # Body changed. Check current stamp value.
+    current_stamp=$(grep -m1 '^Last updated:' "$f" | sed 's/^Last updated: *//')
+    if [[ "$current_stamp" != "$TODAY"* ]]; then
+      # Bump it.
+      # Use awk for portable in-place edit (BSD sed -i is different from GNU).
+      tmp=$(mktemp)
+      awk -v today="$TODAY" 'BEGIN{done=0} /^Last updated:/ && !done { print "Last updated: " today; done=1; next } { print }' "$f" > "$tmp"
+      mv "$tmp" "$f"
+      git add "$f"
+      BUMPED+=("$f")
+    fi
+  fi
+done
+
+if [[ ${#BUMPED[@]} -gt 0 ]]; then
+  echo "[pre-commit] Bumped 'Last updated' to $TODAY on ${#BUMPED[@]} file(s):"
+  for f in "${BUMPED[@]}"; do
+    echo "  - $f"
+  done
+fi
+
+exit 0

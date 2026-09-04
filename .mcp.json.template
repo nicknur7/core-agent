@@ -1,0 +1,37 @@
+{
+  "_comment": "Template .mcp.json shipped with nicknur7/core-agent. Single-Core forks use only `core-brain`. Multi-Core users uncomment the `peer-*` entries to expose read-only cross-Core state via peer-MCP. CLAUDE_PROJECT_DIR is auto-set by Claude Code; CORE_ORG_ID must match this Core's row in the corebrain `tenants` table.",
+  "mcpServers": {
+    "core-brain": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--no-project", "--python", "3.12",
+        "--with", "mcp<2",
+        "--with", "psycopg2-binary",
+        "--with", "pgvector",
+        "--with", "voyageai",
+        "--with", "flashrank",
+        "python",
+        "${CLAUDE_PROJECT_DIR}/scheduling/brain-pg/mcp-server.py"
+      ],
+      "env": {
+        "CORE_ORG_ID": "1",
+        "CORE_INSTANCE": "${CLAUDE_PROJECT_DIR}",
+        "CORE_BRAIN": "/Users/USER/AI Projects/core-brain"
+      }
+    },
+    "_peer-business-EXAMPLE": {
+      "_comment": "Uncomment + adjust path/label for multi-Core peer reads. Repeat per sibling Core (peer-life, peer-business, peer-school, etc.) but exclude the SELF entry — a Core does not peer itself.",
+      "command": "uv",
+      "args": [
+        "run", "--no-project", "--python", "3.12", "--with", "mcp<2",
+        "python",
+        "/Users/USER/AI Projects/core-business/bin/peer-mcp-server.py"
+      ],
+      "env": {
+        "CORE_DOMAIN_LABEL": "business",
+        "CLAUDE_PROJECT_DIR": "/Users/USER/AI Projects/core-business"
+      }
+    }
+  }
+}

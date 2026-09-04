@@ -1,0 +1,10 @@
+# brain-pg Python dependencies (hybrid recall + ingestion pipeline)
+# Verified installed 2026-05-31; pinned to current minor for reproducibility.
+#
+#   pip install -r requirements.txt
+#
+# Stdlib-only modules (os, sys, json, re, argparse, pathlib, ...) are not listed.
+
+psycopg2-binary>=2.9.12   # Postgres driver — all DB reads/writes (query, embed, eval, compile-truth)
+voyageai>=0.3.7           # embeddings for leg_vector / edge_vector (embed.py, query.py); needs VOYAGE_API_KEY
+flashrank>=0.2.10         # cross-encoder rerank (ms-marco-MiniLM-L-12-v2) in query.py; ~22MB CPU model, lazy-imported

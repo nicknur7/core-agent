@@ -1,0 +1,57 @@
+{
+  "_comment": "Single source of truth for every stable file/dir Core touches. Paths are repo-relative; loaders (bin/core-paths.sh + bin/core_paths.py) prepend $CORE_INSTANCE. Edit THIS file to add or move a tracked path — both .sh and .py see the change automatically. Last updated: 2026-05-15 (JSON refactor).",
+  "state": {
+    "STATE_DIR": ".claude/state",
+    "LAST_SESSION_START": ".claude/state/.last-session-start",
+    "SESSION_START": ".claude/state/.session-start",
+    "END_SESSION_SENTINEL": ".claude/state/.end-session-requested",
+    "PENDING_PUSH_MARKER": ".claude/state/.pending-push-marker",
+    "LAST_SAVE_BLOCKED": ".claude/state/.last-save-blocked"
+  },
+  "hooks": {
+    "HOOKS_DIR": ".claude/hooks",
+    "HOOK_SESSION_START": ".claude/hooks/session-start-check.sh",
+    "HOOK_STOP": ".claude/hooks/stop-hook.sh",
+    "HOOK_DEFENSIVE_SAVE": ".claude/hooks/defensive-save.sh",
+    "HOOK_END_SESSION": ".claude/hooks/end-session.sh",
+    "HOOK_SAY_DO_GAP": ".claude/hooks/say-do-gap.py",
+    "HOOK_STATE_CLAIM_GATE": ".claude/hooks/state-claim-gate.py",
+    "HOOK_TIME_CLAIM_GATE": ".claude/hooks/time-claim-gate.py",
+    "HOOK_ROT_CHECK": ".claude/hooks/rot-check.py",
+    "HOOK_BRAIN_RECALL": ".claude/hooks/brain-recall-trigger.py",
+    "HOOK_VERIFICATION_TRIGGER": ".claude/hooks/verification-trigger.py",
+    "HOOK_PRETOOLUSE_GUARD": ".claude/hooks/pretooluse-guard.sh",
+    "HOOK_GET_SESSION_START_TIME": ".claude/hooks/get-session-start-time.sh",
+    "HOOK_RUN_BRAIN_UPDATE": ".claude/hooks/run-brain-update.sh"
+  },
+  "bin": {
+    "BIN_DIR": "bin",
+    "BIN_COMPUTE_SESSION_DURATION": "bin/compute-session-duration.sh",
+    "BIN_LINT_DOC_PATHS": "bin/lint-doc-paths.py",
+    "BIN_LINT_CODE_PATHS": "bin/lint-code-paths.py",
+    "BIN_LINT_ORG_SCOPING": "bin/lint-org-scoping.py",
+    "BIN_QUEUE_SHARED_PUSH": "bin/queue-shared-push.sh"
+  },
+  "memory": {
+    "MEMORY_DIR": "memory",
+    "MEM_CURRENT_STATE": "memory/current-state.md",
+    "MEM_DECISIONS_LOG": "memory/decisions-log.md",
+    "MEM_ACCESS_LOG": "memory/access-log.md",
+    "MEM_CAPABILITIES": "memory/capabilities.md",
+    "MEM_PENDING": "memory/pending.md",
+    "MEM_ABOUT_ME": "memory/about-me.md",
+    "MEM_PREFERENCES": "memory/preferences.md"
+  },
+  "tasks": {
+    "TASKS_DIR": "tasks",
+    "TASK_LESSONS": "tasks/lessons.md",
+    "TASK_LESSONS_ARCHIVE": "tasks/lessons-archive.md",
+    "TASK_SYSTEM_RUNDOWN": "tasks/system-rundown.md"
+  },
+  "sessions": {
+    "SESSIONS_DIR": "sessions"
+  },
+  "identity": {
+    "IDENTITY_JSON": ".claude/identity.json"
+  }
+}

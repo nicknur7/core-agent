@@ -1,0 +1,52 @@
+{
+  "deliverable_as_artifact": {
+    "template_id": "block-deliverable-v1",
+    "event": "Stop",
+    "effect_mode": "block",
+    "condition": {
+      "all": [
+        {
+          "op": "event_is",
+          "value": "Stop"
+        },
+        {
+          "op": "state_flag_is",
+          "value": {
+            "flag": "deliverable_requested",
+            "equals": true
+          }
+        },
+        {
+          "op": "artifact_delivery_present",
+          "value": false
+        }
+      ]
+    },
+    "message": "Deliverable requested but this turn delivered no artifact (no SendUserFile / Artifact / Write to a .md/.docx/.pdf/.xlsx). Re-respond: write the deliverable to a file and SendUserFile it, or publish an Artifact for a web view — then a tight chat summary."
+  },
+  "adversarial_review_before_blast_radius": {
+    "template_id": "block-adversarial-review-v1",
+    "event": "Stop",
+    "effect_mode": "block",
+    "condition": {
+      "all": [
+        {
+          "op": "event_is",
+          "value": "Stop"
+        },
+        {
+          "op": "state_flag_is",
+          "value": {
+            "flag": "blast_radius_action",
+            "equals": true
+          }
+        },
+        {
+          "op": "adversarial_review_present",
+          "value": false
+        }
+      ]
+    },
+    "message": "Blast-radius action with no adversarial review this turn. The operator's standing directive (17 recorded moments) is to orchestrate Claude + Fable + Codex on substantial work: run sentinel-code or a Codex review over the diff BEFORE it ships, and treat the findings as leads to verify. Codex proposes; Claude and the existing gates dispose."
+  }
+}
