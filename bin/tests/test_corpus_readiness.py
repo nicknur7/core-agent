@@ -65,8 +65,10 @@ def main() -> int:
     r = subprocess.run([sys.executable, str(TOOL)], capture_output=True, text=True, timeout=600)
     out = r.stdout + r.stderr
     if "could not" in out and "corebrain" in out.lower():
-        print("  SKIP  corebrain unreachable — this tool reads live corpus counts")
-        return 0
+        # The two textual checks above already ran and COUNT. Returning 0 here after they failed
+        # let the runner file this whole file as SKIP (Codex review, 2026-09-04).
+        print("  SKIP  corebrain unreachable — the live-corpus checks did not run; the checks above still count")
+        return 1 if failures else 0
 
     m = re.search(r"needs >=(\d+) observations per ask", out)
     check("the reported MIN_PRE_N matches the value in the instrument",

@@ -53,6 +53,23 @@ def check(name: str, ok: bool, detail: str = "") -> None:
     print(f"  {'PASS' if ok else 'FAIL'}  {name}" + ("" if ok else f"\n          {detail}"))
 
 
+def _absent(exc) -> bool:
+    """SKIP is allowed only when there is no database to talk to; brain-pg/_env.db_absent decides."""
+    try:
+        from _env import db_absent
+        return db_absent(exc)
+    except Exception:  # noqa: BLE001  — _env itself missing means nothing here can be judged
+        return isinstance(exc, ModuleNotFoundError)
+
+
+def _describe(exc) -> str:
+    try:
+        from _env import describe_db_failure
+        return describe_db_failure(exc)
+    except Exception:  # noqa: BLE001
+        return f"{exc.__class__.__name__}: {exc}"
+
+
 # SEAT-RESOLVED, NOT org 1. Caught by sentinel-code on the baseline push, and it is the right
 # catch: this file ships to every Core and to a fork. A hardcoded org_id=1 makes a peer write
 # into life's partition — which RLS rejects, so the peer gets a confusing failure instead of a
@@ -116,9 +133,15 @@ def main() -> int:
         global ORG
         ORG = sp.get_org_id()
     except Exception as exc:
-        print(f"  SKIP  cannot import the SI modules ({exc.__class__.__name__}: {exc})")
+        # Absence (no driver installed yet) is a SKIP. A module that ships in this checkout and
+        # fails to import is a defect, and used to hide here as SKIP (Codex review, 2026-09-04).
         shutil.rmtree(tmp, ignore_errors=True)
-        return 0
+        if _absent(exc):
+            print(f"  SKIP  no database driver on this seat ({exc.__class__.__name__}: {exc})")
+            return 0
+        print(f"  FAIL  the SI modules failed to import ({exc.__class__.__name__}: {exc}) — "
+              f"present but broken, not an absent dependency")
+        return 1
 
     if str(sp.STATE).startswith(str(REPO)):
         print(f"  FAIL  isolation broke — si_project.STATE is {sp.STATE}, inside the live repo. "
@@ -130,8 +153,11 @@ def main() -> int:
         try:
             sp.upsert(ORG, _spec("original message"))
         except Exception as exc:
-            print(f"  SKIP  corebrain unwritable ({exc.__class__.__name__}) — this test needs a live DB")
-            return 0
+            if _absent(exc):
+                print(f"  SKIP  no database to write to ({_describe(exc)}) — this test needs a live DB")
+                return 0
+            print(f"  FAIL  upsert raised with a REACHABLE database ({_describe(exc)})")
+            return 1
 
         # --- durability across re-install -------------------------------------------------
         sp.quarantine(ORG, TEST_AID, "selftest: pretend the watchdog caught this misbehaving")

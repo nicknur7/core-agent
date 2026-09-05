@@ -180,6 +180,13 @@ is_skip() {
   grep -qE "^ *SKIP( |—|--|:)|^SKIP\b" <<< "$1"
 }
 
+# A file that prints "  FAIL  ..." and then exits 0 is wrong about one of them, and the runner used
+# to believe the exit code: a SKIP branch that `return 0`-ed after earlier checks had already
+# failed was filed as SKIP (Codex review of the P0 repair, 2026-09-04). The printed verdict wins.
+printed_fail() {
+  grep -qE "^ *FAIL( |:|—|--)" <<< "$1"
+}
+
 # A Python traceback means the file DIED. core-business, bus #975: its suite mapped rc==1 to
 # "findings" unconditionally, so a casebook where every artifact crashed printed "FINDINGS 33 — all
 # controls green." A crash is not a result, whatever the exit code says.
@@ -235,6 +242,11 @@ run_one() {
   if [[ $rc -ne 0 ]]; then
     fail=$((fail+1)); BAD+=("FAIL   $t")
     [[ $QUIET -eq 0 ]] && printf '  FAIL   %s\n' "$t"
+    return
+  fi
+  if printed_fail "$out"; then
+    fail=$((fail+1)); BAD+=("FAIL   $t  (exit 0 but printed FAIL — the printed verdict wins)")
+    [[ $QUIET -eq 0 ]] && printf '  FAIL   %s  <- exit 0 but printed FAIL\n' "$t"
     return
   fi
   if is_skip "$out"; then
@@ -694,6 +706,9 @@ if [[ $_HARD_RED -gt 0 || $_SOFT_RED -gt 0 ]]; then
 fi
 rm -f "$_MARK" 2>/dev/null
 if [[ $FRESH -eq 1 && $_SOFT -gt 0 ]]; then
+  # Name them HERE, not only in the red branch: under --quiet the per-file lines are suppressed, and
+  # "named above" was a lie on exactly the run `make test-fresh` performs (Codex, 2026-09-04).
+  [[ ${#BAD[@]} -gt 0 ]] && printf '%s\n' "${BAD[@]}"
   echo "  GREEN (fresh-clone contract) — 0 FAIL / 0 CRASH / 0 LEAK; $_SOFT file(s) SKIP or ABSTAIN, named above: unavailable on a bare clone, not passed."
 else
   echo "  ALL GREEN — every file executed AND demonstrated at least one check ran."

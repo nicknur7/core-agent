@@ -294,6 +294,30 @@ def describe_db_failure(exc) -> str:
     return f"{name}: {first[:120]}"
 
 
+def db_absent(exc) -> bool:
+    """True only when the failure means THERE IS NO DATABASE TO TALK TO — the one class a test is
+    allowed to SKIP on. False for anything a REACHABLE database said back (schema, permission,
+    a cancelled statement, a programming error): those are defects, and a test that SKIPs on them
+    hides a broken implementation behind "unavailable".
+
+    Codex review of the P0 repair (2026-09-04): three tests SKIPped on bare `except Exception`,
+    so a broken query and an absent database looked identical. Same classifier as
+    describe_db_failure() above — one place decides what "absent" means, and the message a test
+    prints beside its SKIP comes from the same call.
+    """
+    if isinstance(exc, ModuleNotFoundError) and (getattr(exc, "name", "") or "").split(".")[0] == "psycopg2":
+        return True  # no driver on this seat — `pip install -e .` has not run
+    name = exc.__class__.__name__
+    low = str(exc).strip().lower()
+    if name in ("QueryCanceled", "QueryCanceledError") or "statement timeout" in low:
+        return False
+    if name in ("UndefinedTable", "UndefinedColumn", "UndefinedFunction", "ProgrammingError",
+                "InsufficientPrivilege"):
+        return False
+    return (name == "OperationalError" or "could not connect" in low or "connection refused" in low
+            or ("database" in low and "does not exist" in low))
+
+
 def connect_or_skip(component: str):
     """Connect, or return None after printing a NAMED skip status. Never raises.
 
