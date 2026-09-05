@@ -4,7 +4,7 @@
 graph of everything you have done with it, and compiles your repeated corrections into hooks that fire whether or not
 the model remembers.
 
-Fork it, run four commands, and you have:
+Fork it, run five commands (deps, brain, learned layer, sync, verify), and you have:
 
 - **Memory that survives `/clear`** — plain markdown you can read and edit, written at every session close, plus a
   Postgres graph of the entities, decisions and relationships pulled out of the transcript.
@@ -187,7 +187,7 @@ watched you work.
 
 Everything below ships in this repo and runs on its own. The only inputs are your prompts and your corrections.
 
-**Day one, first prompt.** 30 hooks are registered across 17 lifecycle events. Two things fire before you have any
+**Day one, first prompt.** 47 hook registrations (35 scripts) are wired across 17 lifecycle events. Two things fire before you have any
 history: the **starter contracts** — seven generalised rules (verify before claiming, plan before executing,
 recall before answering, stop-and-plan on a redirect, model routing, frustration de-escalation, verify a claim
 adversarially) that `.claude/hooks/learned-classifier.py` injects into the prompt when it matches
@@ -308,11 +308,14 @@ python3 bin/grade-intent.py                     # do the gates still match inten
 bash bin/tests/run-all.sh                       # the 168-file suite                 (no DB)
 ```
 
-**Expect honest, not green.** On a fresh clone `wiring-audit.py` exits 1 and names 34 scripts nothing automatic calls
-yet, alongside a first-party, currently non-empty list of components the project itself knows are still dangling
-([`bin/wiring-allowlist.json`](bin/wiring-allowlist.json)). `run-all.sh` is not green either: roughly a dozen of the
-168 fail, because they check a live seat's own state — a transcript directory, sibling Cores — that a bare template
-does not have. Both print the breakdown they measured instead of a reassuring summary, which is the whole design.
+**Two contracts, both honest.** `make test-fresh` (`run-all.sh --fresh`) is the stranger's acceptance test: on a bare
+clone it must be GREEN — zero FAIL, CRASH or LEAK — and it *names* every check that could not run here (no brain
+database, no transcript directory, no sibling Cores) as SKIP or ABSTAIN rather than counting it as passed or as
+failed. The strict `run-all.sh` used on a live seat treats those same abstains as red, because on a seat with a brain
+an abstaining check means something is broken. `wiring-audit.py` exits 1 on a fresh clone by design: it names the
+scripts nothing automatic calls yet, against a first-party list of components the project itself knows are still
+dangling ([`bin/wiring-allowlist.json`](bin/wiring-allowlist.json)). Every one of these prints the breakdown it
+measured instead of a reassuring summary.
 
 `wiring-audit.py` exists because three subsystems here were once built, given an entry point, and never called by
 anything for months — a hub-summary refresher that had compiled 0.78% of hubs, a cross-Core bridge frozen 52 days, a

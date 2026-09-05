@@ -1,7 +1,7 @@
 # Setting up a Core
 
 This is the full setup path for a fresh Core — forked or cloned from
-`nicknur7/core-agent`. Start with the visual map, then run four commands.
+`nicknur7/core-agent`. Start with the visual map, then run five commands.
 
 > **See it first:** open [`docs/architecture/core-system-architecture.html`](architecture/core-system-architecture.html)
 > in any browser. Hit **🧭 Start here** for the mental model, then **📖 Glossary**,
@@ -43,7 +43,7 @@ Each part, and how they fire during a normal session, is in the architecture map
 
 ---
 
-## Install (4 steps)
+## Install (5 steps)
 
 Run these from the Core's root directory.
 
@@ -59,8 +59,9 @@ bash bin/setup-brain.sh
 bash bin/install-learned-layer.sh
 
 # 4. Pull the latest shared code from the baseline (nicknur7/core-agent)
-#    NOTE: this step also REGISTERS THE FULL HOOK SET. A fresh clone ships with
-#    11 of ~44 hook registrations; step 4 installs the rest via reconcile-hooks.
+#    The clone already ships with the full hook set wired in .claude/settings.json
+#    (`bin/reconcile-hooks.py --check` reports "in sync" on a fresh clone); this step
+#    brings in anything newer and re-reconciles registrations if the set has changed.
 bash bin/sync-from-baseline.sh
 
 # 5. VERIFY the hook set actually landed. Passing output is exactly:
@@ -99,6 +100,7 @@ That's it. Open a Claude Code session in this directory and the system is live.
 | 2 | `setup-brain.sh` | **Both halves of the brain.** The `corebrain` Postgres DB (schema, migrations, roles, tenant row) *and* the markdown vault at `$CORE_BRAIN` — default `../core-brain` — seeded from `template/brain/`. Recall works. Idempotent: re-running never overwrites vault files you have edited. |
 | 3 | `install-learned-layer.sh` | Learned-layer DB schema + the 4 hooks registered + a generalized starter contract set. **All blockers AND the classifier go live immediately** (the starter is generic; it gets replaced by your own as corrections accumulate). Idempotent — safe to re-run. **Existing Cores run this automatically on every `sync-from-baseline.sh` pull** — only a brand-new clone needs to run it by hand. |
 | 4 | `sync-from-baseline.sh` | Latest shared hooks/rules/agents/pipeline from `nicknur7/core-agent`. Run anytime to update. |
+| 5 | `reconcile-hooks.py --check` | Proves the hook set is exactly what the registry says — `✓ in sync — no drift`, exit 0. Then `make test-fresh` for the fresh-clone contract. |
 
 ---
 

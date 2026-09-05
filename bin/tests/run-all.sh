@@ -58,6 +58,7 @@ if [[ ! -r "$_SELF" ]]; then
 fi
 cd "$_SEAT" || exit 2
 QUIET=0
+FRESH=0    # --fresh: the fresh-clone contract — SKIP/ABSTAIN are named, not red; FAIL/CRASH/MUTE/LEAK still are
 SCAN="bin/tests"
 # HONOUR THE ARGUMENT OR REFUSE IT — never discard it. That is the defect core-business found in its
 # own scanners (bus #971): a tool that accepts a path and silently measures its own seat produces a
@@ -68,6 +69,7 @@ _SCAN_GIVEN=0
 for a in "$@"; do
   case "$a" in
     --quiet) QUIET=1 ;;
+    --fresh) FRESH=1 ;;
     -*) echo "REFUSING: unknown flag '$a'" >&2; exit 2 ;;
     *)  SCAN="$a"; _SCAN_GIVEN=1 ;;
   esac
@@ -118,8 +120,11 @@ if [[ $_SCAN_GIVEN -eq 0 ]]; then
   while IFS= read -r _d; do
     [[ -z "$_d" ]] && continue
     _NDIR=$((_NDIR+1))
-    if [[ $QUIET -eq 1 ]]; then bash "$_SELF" --quiet "$_d"; _crc=$?
-    else bash "$_SELF" "$_d"; _crc=$?; fi
+    # bash 3.2 (macOS default) + `set -u`: expanding an EMPTY array is an unbound-variable error,
+    # which killed the default recursive run the moment --fresh was added. The ${arr[@]+"${arr[@]}"}
+    # idiom expands to nothing when empty and to the elements otherwise.
+    _FL=(); [[ $QUIET -eq 1 ]] && _FL+=(--quiet); [[ $FRESH -eq 1 ]] && _FL+=(--fresh)
+    bash "$_SELF" ${_FL[@]+"${_FL[@]}"} "$_d"; _crc=$?
     # A CHILD THAT COULD NOT START IS NOT A FAILING SUITE. 126/127 mean "not executable"/"not found":
     # no test ran, so reporting it as a non-pass would attribute a verdict to code that was never
     # executed -- the exact substitution this runner exists to refuse.
@@ -138,7 +143,9 @@ if [[ $_SCAN_GIVEN -eq 0 ]]; then
   if [[ $_EXCL -gt 0 ]]; then
     echo "    excluded: $_EXCL file(s) under archive/ — deliberately retired, not silently missed"
   fi
-  [[ $_RC -ne 0 ]] && echo "    NOT GREEN — at least one directory above reported a non-pass."
+  if [[ $_RC -ne 0 ]]; then echo "    NOT GREEN — at least one directory above reported a non-pass."
+  elif [[ $FRESH -eq 1 ]]; then echo "    GREEN (fresh-clone contract) — no FAIL/CRASH/LEAK in any directory; SKIP/ABSTAIN named above."
+  fi
   exit $_RC
 fi
 if [[ ! -d "$SCAN" ]]; then
@@ -577,6 +584,13 @@ fi
 # degradation for exactly one cycle and then normalises it away. Recorded only on a FULL CLEAN run —
 # a partial run is faster for reasons that say nothing about the suite.
 _RT="$SCAN/.runtime-baseline"
+# --fresh (2026-09-04, codex #5943 P0): a stranger's clone has no brain, no transcripts, no peers.
+# Its DB-backed and live-seat checks ABSTAIN/SKIP by design, and under the strict contract that is
+# red — correct for a seat, useless as a public acceptance test, so README normalised "about a dozen
+# fail". The partition: --fresh grades FAIL/CRASH/MUTE/LEAK as red and lists SKIP/ABSTAIN by name.
+# Nothing un-run is ever counted as passed; it is counted as named-and-unavailable.
+_SOFT=$(( skip + ${abstain:-0} ))
+if [[ $FRESH -eq 1 ]]; then skip=0; abstain=0; fi
 if [[ $fail -eq 0 && $crash -eq 0 && $mute -eq 0 && $skip -eq 0 && $leak -eq 0 && ${abstain:-0} -eq 0 ]]; then
   # milli-seconds per file, integer, so bash can compare it
   _RATE=$(( _ELAPSED_MS / ${#FILES[@]} ))
@@ -672,4 +686,8 @@ if [[ $fail -gt 0 || $crash -gt 0 || $mute -gt 0 || $skip -gt 0 || ${leak:-0} -g
   exit 1
 fi
 rm -f "$_MARK" 2>/dev/null
-echo "  ALL GREEN — every file executed AND demonstrated at least one check ran."
+if [[ $FRESH -eq 1 && $_SOFT -gt 0 ]]; then
+  echo "  GREEN (fresh-clone contract) — 0 FAIL / 0 CRASH / 0 LEAK; $_SOFT file(s) SKIP or ABSTAIN, named above: unavailable on a bare clone, not passed."
+else
+  echo "  ALL GREEN — every file executed AND demonstrated at least one check ran."
+fi

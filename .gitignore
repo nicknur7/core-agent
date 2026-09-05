@@ -50,3 +50,6 @@ __pycache__/
 *.pyc
 .claude/settings.json.bak
 bin/.gate-trusted-sha
+
+# per-seat test-runtime ratchet files written by run-all.sh; state, not source
+**/.runtime-baseline
