@@ -247,6 +247,12 @@ def connect_corebrain():
     return conn
 
 
+def _refused_login(low: str) -> bool:
+    """The server is up and said NO to this seat's credentials or host — never absence."""
+    return ("authentication failed" in low or "no pg_hba.conf entry" in low
+            or "permission denied for database" in low)
+
+
 def describe_db_failure(exc) -> str:
     """Say WHICH failure this was, and name the knob that fixes it.
 
@@ -288,6 +294,10 @@ def describe_db_failure(exc) -> str:
         return (f"the database answered and REFUSED the query ({name}: {first[:100]}) — a schema or "
                 f"permission problem, not connectivity. Checking that Postgres is running will not "
                 f"resolve it.")
+    if _refused_login(low):
+        return (f"the server answered and REFUSED the login ({first[:100]}) — a credentials or "
+                f"pg_hba problem on a configured seat, not connectivity. Check the role and password "
+                f"this seat presents (CORE_BRAIN_DB_USER, the keychain entry); Postgres is running.")
     if name == "OperationalError" or "could not connect" in low or "connection refused" in low:
         return (f"corebrain unreachable ({first[:100]}) — check: "
                 f"brew services list | grep postgresql@17; fall back to grep.")
@@ -301,9 +311,9 @@ def db_absent(exc) -> bool:
     hides a broken implementation behind "unavailable".
 
     Codex review of the P0 repair (2026-09-04): three tests SKIPped on bare `except Exception`,
-    so a broken query and an absent database looked identical. Same classifier as
-    describe_db_failure() above — one place decides what "absent" means, and the message a test
-    prints beside its SKIP comes from the same call.
+    so a broken query and an absent database looked identical. Keep this and describe_db_failure()
+    in step — a test prints that description beside this verdict, and the first cut had them
+    disagreeing on a refused login (Fable, pass 3): "NOT absent: corebrain unreachable".
     """
     if isinstance(exc, ModuleNotFoundError) and (getattr(exc, "name", "") or "").split(".")[0] == "psycopg2":
         return True  # no driver on this seat — `pip install -e .` has not run
@@ -314,7 +324,7 @@ def db_absent(exc) -> bool:
     if name in ("UndefinedTable", "UndefinedColumn", "UndefinedFunction", "ProgrammingError",
                 "InsufficientPrivilege"):
         return False
-    if "authentication failed" in low or "no pg_hba.conf entry" in low:
+    if _refused_login(low):
         return False  # the server answered and refused YOU: a configured seat with a wrong secret
     return (name == "OperationalError" or "could not connect" in low or "connection refused" in low
             or ("database" in low and "does not exist" in low))

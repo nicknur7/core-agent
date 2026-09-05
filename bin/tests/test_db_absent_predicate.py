@@ -13,7 +13,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scheduling" / "brain-pg"))
-from _env import db_absent  # noqa: E402
+from _env import db_absent, describe_db_failure  # noqa: E402
 
 p = f = 0
 
@@ -40,6 +40,7 @@ def main() -> int:
     present = [
         exc("OperationalError", 'FATAL:  password authentication failed for user "core_life"'),
         exc("OperationalError", 'FATAL:  no pg_hba.conf entry for host "10.0.0.5", user "x", database "corebrain"'),
+        exc("OperationalError", 'FATAL:  permission denied for database "corebrain"'),
         exc("UndefinedTable", 'relation "si_artifacts" does not exist'),
         exc("QueryCanceled", "canceling statement due to statement timeout"),
         exc("InsufficientPrivilege", "permission denied for table tenants"),
@@ -51,6 +52,14 @@ def main() -> int:
         check(f"ABSENT: {e.__class__.__name__}: {str(e)[:60]}", db_absent(e) is True)
     for e in present:
         check(f"NOT absent (a defect): {e.__class__.__name__}: {str(e)[:60]}", db_absent(e) is False)
+    # The description printed beside the verdict must not contradict it (Fable, pass 3): a refused
+    # login used to describe as "corebrain unreachable — check brew services".
+    for e in present[:3]:
+        d = describe_db_failure(e)
+        check(f"description agrees: refused login is not 'unreachable': {str(e)[8:48]}",
+              "unreachable" not in d and "REFUSED the login" in d, d)
+    d = describe_db_failure(absent[0])
+    check("description agrees: connection refused IS 'unreachable'", "unreachable" in d, d)
     print(f"\n=== Results: {p} passed, {f} failed ===")
     return 1 if f else 0
 
