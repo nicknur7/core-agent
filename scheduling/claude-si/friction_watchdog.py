@@ -173,6 +173,13 @@ def _sweep_orphan_payloads(arts: dict, dry: bool) -> list:
     return orphans
 
 
+# The exception _canonical_orphans() swallowed last, or None after a successful query. It fails
+# closed on ANY error by design (see its docstring), which means (set(), False) cannot say WHY —
+# and a test that wants to SKIP on "no database" but FAIL on "broken query" needs the why. The
+# alternative, opening a second connection to guess, judges one failure by another (Codex, pass 2).
+_LAST_CANONICAL_FAILURE = None
+
+
 def _canonical_orphans(aids: list) -> tuple:
     """(set of ids the CANONICAL store has no live artifact for, whether the check actually ran).
 
@@ -189,6 +196,7 @@ def _canonical_orphans(aids: list) -> tuple:
 
     One connection, one round trip, bound parameters, org-scoped.
     """
+    global _LAST_CANONICAL_FAILURE
     try:
         import sys as _s
         from pathlib import Path as _P
@@ -205,8 +213,10 @@ def _canonical_orphans(aids: list) -> tuple:
             live = {r[0] for r in cur.fetchall()}
         finally:
             conn.close()
+        _LAST_CANONICAL_FAILURE = None
         return ({a for a in aids if a not in live}, True)
-    except Exception:
+    except Exception as exc:
+        _LAST_CANONICAL_FAILURE = exc
         return (set(), False)
 
 

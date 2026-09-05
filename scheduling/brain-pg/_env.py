@@ -314,6 +314,8 @@ def db_absent(exc) -> bool:
     if name in ("UndefinedTable", "UndefinedColumn", "UndefinedFunction", "ProgrammingError",
                 "InsufficientPrivilege"):
         return False
+    if "authentication failed" in low or "no pg_hba.conf entry" in low:
+        return False  # the server answered and refused YOU: a configured seat with a wrong secret
     return (name == "OperationalError" or "could not connect" in low or "connection refused" in low
             or ("database" in low and "does not exist" in low))
 

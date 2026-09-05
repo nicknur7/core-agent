@@ -129,19 +129,16 @@ def check(name, cond, detail=""):
         _fails.append(name)
 
 
-def _db_absent_reason() -> str:
-    """'' when corebrain answers (or refuses — a refusal is a defect, not absence); the classified
-    reason when there is NO database to talk to. _canonical_orphans fails closed on ANY exception,
-    so its checked=False cannot tell the two apart — this probe can (Codex review, 2026-09-04)."""
-    try:
-        from _env import connect_corebrain, db_absent, describe_db_failure
-    except Exception as exc:  # noqa: BLE001
-        return f"cannot import _env ({exc.__class__.__name__})"
-    try:
-        connect_corebrain().close()
-        return ""
-    except Exception as exc:  # noqa: BLE001
-        return describe_db_failure(exc) if db_absent(exc) else ""
+def _canonical_failure_is_absence(mod) -> tuple:
+    """(True, reason) when the failure _canonical_orphans recorded means there is NO database;
+    (False, reason) when a reachable database refused or errored — a defect, not absence. Reads
+    the cause the function itself recorded; a second connection would judge one failure by
+    another (Codex, pass 2)."""
+    from _env import db_absent, describe_db_failure  # a broken _env is a CRASH here, correctly
+    exc = getattr(mod, "_LAST_CANONICAL_FAILURE", None)
+    if exc is None:
+        return (False, "checked=False but no failure was recorded — _canonical_orphans changed shape")
+    return (db_absent(exc), describe_db_failure(exc))
 
 
 AID = "art_proc_test_0001"
@@ -236,13 +233,14 @@ inst._atomic_write(inst.ACTIVE, {"artifacts": []})
 # it would report the sweep's own designed-in safety behaviour as a failure. Probe with the same
 # call the sweep makes before asserting on its outcome.
 _, _canon_checked = wd._canonical_orphans([])
-if not _canon_checked and (_why := _db_absent_reason()):
-    print(f"  SKIP  {_why} — the orphan sweep fails closed (retires nothing) without a live "
+_canon_absent, _canon_why = (True, "") if _canon_checked else _canonical_failure_is_absence(wd)
+if not _canon_checked and _canon_absent:
+    print(f"  SKIP  {_canon_why} — the orphan sweep fails closed (retires nothing) without a live "
           "canonical store to confirm against")
 elif not _canon_checked:
     check("the canonical store answered the orphan probe", False,
-          "corebrain is REACHABLE but _canonical_orphans reported checked=False — a schema/query "
-          "error hiding as 'unavailable' (its bare `except Exception` cannot tell them apart)")
+          f"_canonical_orphans reported checked=False for a reason that is NOT an absent database: "
+          f"{_canon_why} — a schema/query error hiding as 'unavailable'")
 else:
     r = wd.sweep(dry=True)
     check("dry sweep reports the orphan", "art_proc_orphan_01" in (r.get("orphan_payloads") or []))

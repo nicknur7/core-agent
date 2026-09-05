@@ -33,6 +33,11 @@ FIX = {
     "mute":    "print('starting up')\n",
     # prints a verdict and contradicts it with the exit code — the printed FAIL must win
     "liar":    "print('  FAIL  the thing under test is wrong')\nprint('  SKIP — and then pretends to skip')\n",
+    # the FAIL vocabulary the suite actually uses (Codex, pass 2): a count line and a bare word
+    "liar_count": "print('  PASS  a')\nprint('  FAIL=1 of 2')\n",
+    "liar_bare":  "print('  PASS  a')\nprint('FAIL')\n",
+    # a ZERO-count summary is not a failure and must stay ok
+    "zero_summary": "print('  PASS  a')\nprint('FAIL: 0')\nprint('  FAIL=0 of 9')\n",
 }
 
 
@@ -81,6 +86,11 @@ def main() -> int:
         rc, out, _ = run(["ok", "liar"], fresh=fresh)
         check(f"{'--fresh' if fresh else 'strict'}: a file that prints FAIL and exits 0 is a FAIL, not a SKIP",
               rc == 1 and "FAIL=1" in out and "SKIP=0" in out and "GREEN" not in out, out[-400:])
+    for dose in ("liar_count", "liar_bare"):
+        rc, out, _ = run(["ok", dose], fresh=True)
+        check(f"--fresh: '{FIX[dose].splitlines()[-1].strip()}' with exit 0 is a FAIL", rc == 1 and "FAIL=1" in out, out[-400:])
+    rc, out, _ = run(["ok", "zero_summary"], fresh=False)
+    check("strict: a zero-count summary ('FAIL: 0', 'FAIL=0 of 9') with exit 0 stays ok", rc == 0 and "FAIL=0" in out and "ALL GREEN" in out, out[-400:])
     rc, out, _ = run(["ok", "skip", "abstain"], fresh=True, quiet=True)
     check("--fresh --quiet (what `make test-fresh` runs): GREEN, and the SKIP/ABSTAIN files are NAMED, not just counted",
           rc == 0 and "GREEN (fresh-clone contract)" in out

@@ -184,7 +184,9 @@ is_skip() {
 # to believe the exit code: a SKIP branch that `return 0`-ed after earlier checks had already
 # failed was filed as SKIP (Codex review of the P0 repair, 2026-09-04). The printed verdict wins.
 printed_fail() {
-  grep -qE "^ *FAIL( |:|—|--)" <<< "$1"
+  # "  FAIL  name", "FAIL", "FAIL: msg", "  FAIL=1 of 2" (test_budget_gate_* prints that shape);
+  # NOT "FAIL: 0" / "FAIL=0 of 9", which are zero-count summaries (Codex, pass 2).
+  grep -E "^ *FAIL( |$|[:=—–]|--)" <<< "$1" | grep -vqE "^ *FAIL[:=] *0([^0-9]|$)"
 }
 
 # A Python traceback means the file DIED. core-business, bus #975: its suite mapped rc==1 to

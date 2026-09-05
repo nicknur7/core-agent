@@ -49,19 +49,16 @@ def check(name: str, ok: bool, detail: str = "") -> None:
     print(f"  {'PASS' if ok else 'FAIL'}  {name}" + ("" if ok else f"\n          {detail}"))
 
 
-def _db_absent_reason() -> str:
-    """'' when corebrain answers (or refuses — a refusal is a defect, not absence); the classified
-    reason when there is NO database to talk to. _canonical_orphans fails closed on ANY exception,
-    so its checked=False cannot tell the two apart — this probe can (Codex review, 2026-09-04)."""
-    try:
-        from _env import connect_corebrain, db_absent, describe_db_failure
-    except Exception as exc:  # noqa: BLE001
-        return f"cannot import _env ({exc.__class__.__name__})"
-    try:
-        connect_corebrain().close()
-        return ""
-    except Exception as exc:  # noqa: BLE001
-        return describe_db_failure(exc) if db_absent(exc) else ""
+def _canonical_failure_is_absence(mod) -> tuple:
+    """(True, reason) when the failure _canonical_orphans recorded means there is NO database;
+    (False, reason) when a reachable database refused or errored — a defect, not absence. Reads
+    the cause the function itself recorded; a second connection would judge one failure by
+    another (Codex, pass 2)."""
+    from _env import db_absent, describe_db_failure  # a broken _env is a CRASH here, correctly
+    exc = getattr(mod, "_LAST_CANONICAL_FAILURE", None)
+    if exc is None:
+        return (False, "checked=False but no failure was recorded — _canonical_orphans changed shape")
+    return (db_absent(exc), describe_db_failure(exc))
 
 
 def main() -> int:
@@ -119,13 +116,14 @@ def main() -> int:
               f"raised {type(e).__name__}: {e} — _canonical_orphans is documented to fail closed, "
               f"never to raise")
     else:
-        if _c is False and (_why := _db_absent_reason()):
-            print(f"  SKIP  {_why} — cannot exercise the canonical YES path without a live DB")
-        elif _c is False:
-            check("an id the canonical store has never seen IS an orphan", False,
-                  "corebrain is REACHABLE but _canonical_orphans reported checked=False — its bare "
-                  "`except Exception` turned a schema/query error into 'unavailable'; that is a broken "
-                  "sweep, not an absent database")
+        if _c is False:
+            _absent, _why = _canonical_failure_is_absence(fw)
+            if _absent:
+                print(f"  SKIP  {_why} — cannot exercise the canonical YES path without a live DB")
+            else:
+                check("an id the canonical store has never seen IS an orphan", False,
+                      f"_canonical_orphans reported checked=False for a reason that is NOT an absent "
+                      f"database: {_why} — a broken sweep hiding as 'unavailable'")
         else:
             orphan_unknown = "art_definitely_not_in_the_db_xyz" in _o
             check("an id the canonical store has never seen IS an orphan",
