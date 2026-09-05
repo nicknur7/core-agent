@@ -115,7 +115,18 @@ def test_sibling_moments_dedupes_rows_to_moments():
     only tells the difference between "nothing to dedupe" and "dedupe is broken," which the raw
     count alone cannot."""
     ask = "verify state against the live source before claiming"
-    con = connect_corebrain()
+    # GUARDED, NOT BARE. A corebrain that cannot be reached is exactly the "this seat's data cannot
+    # settle it" shape abstain() exists for elsewhere in this function (raw_rows==0, dup_groups==0)
+    # — the difference is only WHICH precondition is missing. Every assertion below, including the
+    # am.sibling_moments_for_ask() call further down, needs a live connection; without one this
+    # crashed with a raw psycopg2 traceback instead of reporting UNDECIDABLE like its siblings.
+    try:
+        con = connect_corebrain()
+    except Exception as exc:
+        abstain("sibling_moments_for_ask / moment-dedupe checks",
+                f"corebrain unreachable ({exc.__class__.__name__}) — every assertion here reads "
+                f"live pattern_observations rows for this ask and cannot run without a live DB")
+        return
     try:
         cur = con.cursor()
         # COUNT THE POPULATION THE DEDUP ACTUALLY SEES — excluded_reason IS NULL.
@@ -235,9 +246,22 @@ def test_route_type_precheck_cadence():
 def test_route_still_refuses_ungroundable_ask():
     """Fail-toward-silence is unchanged: an ask that is not diffuse/cadence AND cannot ground two
     real co-occurring terms in its own siblings still refuses, honestly, as no_trigger_terms — the
-    fix recovers asks with real grounded evidence, not every ask."""
+    fix recovers asks with real grounded evidence, not every ask.
+
+    STUBBED, NO LIVE DB — same pattern as bin/tests/test_router_on_subject_trigger.py and
+    bin/tests/test_distilled_mint.py: `route()` resolves `ask_miner.sibling_moments_for_ask` off
+    the shared module object at call time (it does `import ask_miner as am` internally), so
+    patching the attribute here reaches this `fr.route()` call without touching friction_router.py
+    or ask_miner.py. This is a deterministic unit fact about route()'s own refusal logic given a
+    fixed (empty) sibling set — not a claim about what a live corpus contains — so it needs no
+    corebrain connection at all, live or otherwise. Restored in `finally`."""
     case = _fc_case("xyzqfoo wibblesnarf zzqorbit made up nonsense phrase", "test_ungroundable_case")
-    spec = fr.route(case)
+    _orig_sibling_fn = am.sibling_moments_for_ask
+    am.sibling_moments_for_ask = lambda org, canonical_ask, limit=30: []
+    try:
+        spec = fr.route(case)
+    finally:
+        am.sibling_moments_for_ask = _orig_sibling_fn
     check("ungroundable ask still refused (no invented trigger)", spec is None, spec)
     check("refused for lack of terms, not misrouted",
           case.get("_drop_reason") == "no_trigger_terms", case.get("_drop_reason"))

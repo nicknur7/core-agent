@@ -589,8 +589,11 @@ _RT="$SCAN/.runtime-baseline"
 # red — correct for a seat, useless as a public acceptance test, so README normalised "about a dozen
 # fail". The partition: --fresh grades FAIL/CRASH/MUTE/LEAK as red and lists SKIP/ABSTAIN by name.
 # Nothing un-run is ever counted as passed; it is counted as named-and-unavailable.
+# The counters themselves are NOT zeroed (codex #5948): the runtime ratchet below records only a
+# FULL CLEAN run, and a --fresh run with abstains is not one — the same partial-run trap the
+# ratchet comment above names. The soft total is carried separately and consulted only where the
+# verdict is decided.
 _SOFT=$(( skip + ${abstain:-0} ))
-if [[ $FRESH -eq 1 ]]; then skip=0; abstain=0; fi
 if [[ $fail -eq 0 && $crash -eq 0 && $mute -eq 0 && $skip -eq 0 && $leak -eq 0 && ${abstain:-0} -eq 0 ]]; then
   # milli-seconds per file, integer, so bash can compare it
   _RATE=$(( _ELAPSED_MS / ${#FILES[@]} ))
@@ -634,7 +637,11 @@ if [[ $fail -eq 0 && $crash -eq 0 && $mute -eq 0 && $skip -eq 0 && $leak -eq 0 &
 else
   echo "  runtime   ${_ELAPSED}s — not recorded, this run was not clean"
 fi
-if [[ $fail -gt 0 || $crash -gt 0 || $mute -gt 0 || $skip -gt 0 || ${leak:-0} -gt 0 || ${abstain:-0} -gt 0 ]]; then
+# Under --fresh, SKIP and ABSTAIN do not decide the verdict; FAIL/CRASH/MUTE/LEAK still do.
+_HARD_RED=$(( fail + crash + mute + ${leak:-0} ))
+_SOFT_RED=$(( skip + ${abstain:-0} ))
+[[ $FRESH -eq 1 ]] && _SOFT_RED=0
+if [[ $_HARD_RED -gt 0 || $_SOFT_RED -gt 0 ]]; then
   echo
   # `${BAD[@]}` UNGUARDED IS UNBOUND WHEN A LEAK IS THE ONLY PROBLEM (2026-08-13). BAD is appended
   # to by the FAIL / CRASH / SKIP / MUTE arms only — never by the leak check, which is computed

@@ -98,6 +98,31 @@ def main() -> int:
         base = Path(td) / "baseline"
         shas = build_baseline(base)
 
+        # PREFLIGHT: can `git clone` run AT ALL here? Every check below drives sync-from-baseline.sh
+        # through its LOCAL test seam (CORE_BASELINE_URL_LOCAL_TEST) specifically so this file needs
+        # no network — but the seam still shells out to a real `git clone` of that local path
+        # (sync-from-baseline.sh:228), and an environment with no git transport available at all
+        # (e.g. a PATH wrapper that fails clone/fetch/pull/push fast, standing in for "no network")
+        # cannot complete even a same-machine clone. Every one of the checks below would then fail
+        # not because --ref's refusal logic is broken, but because nothing ever got far enough to
+        # exercise it — a dependency this file cannot supply, not a defect in the flag under test.
+        probe_src = Path(td) / "probe_src"
+        probe_dst = Path(td) / "probe_dst"
+        probe_src.mkdir(parents=True, exist_ok=True)
+        git("init", "-q", "-b", "main", cwd=probe_src)
+        git("config", "user.email", "t@t", cwd=probe_src)
+        git("config", "user.name", "t", cwd=probe_src)
+        (probe_src / "f").write_text("x")
+        git("add", "-A", cwd=probe_src)
+        git("commit", "-qm", "probe", cwd=probe_src)
+        probe = subprocess.run(["git", "clone", "-q", str(probe_src), str(probe_dst)],
+                               capture_output=True, text=True, timeout=30)
+        if probe.returncode != 0:
+            print("  SKIP  network unavailable (git clone failed): --ref forward-only staged-pull "
+                  "acceptance needs a working `git clone`, even of a local path — "
+                  f"{(probe.stderr or probe.stdout).strip()[:160]}")
+            return 0
+
         # ---- THE ADVANCE THAT MUST WORK ------------------------------------------------------
         seat = Path(td) / "seat_at_A"
         build_seat(seat, shas["A"])

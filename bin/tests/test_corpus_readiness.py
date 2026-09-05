@@ -66,7 +66,7 @@ def main() -> int:
     out = r.stdout + r.stderr
     if "could not" in out and "corebrain" in out.lower():
         print("  SKIP  corebrain unreachable — this tool reads live corpus counts")
-        return 1
+        return 0
 
     m = re.search(r"needs >=(\d+) observations per ask", out)
     check("the reported MIN_PRE_N matches the value in the instrument",

@@ -9,7 +9,7 @@ siblings via `bin/init-multi-core.sh`.
 **Most people only need one Core**, and it gives you everything — memory, brain,
 learned layer, self-governance. Start here:
 
-- **Setup guide** — [`docs/SETUP.md`](docs/SETUP.md): fork → four commands → live Core.
+- **Setup guide** — [`docs/SETUP.md`](docs/SETUP.md): fork → five commands → live Core.
 - **Visual map of the whole system** — open [`docs/architecture/core-system-architecture.html`](docs/architecture/core-system-architecture.html)
   in any browser. Hit **🧭 Start here** for the mental model and **📖 Glossary** for the terms,
   then click any subsystem (brain, memory, learned layer, SI, rot, the session loop) to follow it

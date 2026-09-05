@@ -35,8 +35,16 @@ FORBIDDEN = {"UPDATE", "DELETE", "TRUNCATE"}
 
 
 def q(sql: str):
+    # HONOUR COREBRAIN_DB, THE SAME AS THE CODE PATH THIS FILE TESTS. This probe used to hardcode
+    # "corebrain", so in an environment where COREBRAIN_DB points at an unreachable database (a
+    # dependency-poor test run, or a seat mid-migration) the probe found the REAL corebrain fine,
+    # ran every grants check against it, and only then hit steering_judge._connect_as_judge() —
+    # which DOES honour COREBRAIN_DB via _env.connect_corebrain() — and crashed. Two probes of the
+    # same fact disagreeing is exactly the class this suite exists to refuse elsewhere; the fix is
+    # one resolver, used everywhere, same as connect_corebrain()'s own os.environ.get default.
+    db = os.environ.get("COREBRAIN_DB", "corebrain")
     try:
-        r = subprocess.run(["psql", "-d", "corebrain", "-tA", "-F", "|", "-c", sql],
+        r = subprocess.run(["psql", "-d", db, "-tA", "-F", "|", "-c", sql],
                            capture_output=True, text=True, timeout=10,
                            env={**os.environ, "PGCONNECT_TIMEOUT": "3"})
     except Exception:

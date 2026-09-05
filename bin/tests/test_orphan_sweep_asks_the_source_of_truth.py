@@ -92,15 +92,28 @@ def main() -> int:
         _env.connect_corebrain = real
 
     # --- and it must still be able to say YES, or the guard is just an off switch ---------------
+    # NEEDS A LIVE DB, DISTINCT FROM THE FAIL-CLOSED CHECK ABOVE. The block above monkeypatches
+    # connect_corebrain to force a controlled failure and needs no real database. This one asks
+    # _canonical_orphans to actually FIND the id absent, which only a real query can answer — with
+    # corebrain unreachable, `_c` (checked) comes back False by the function's own documented
+    # fail-closed contract, and that is "could not test this", not "the property is false".
     try:
         _o, _c = fw._canonical_orphans(["art_definitely_not_in_the_db_xyz"])
-        orphan_unknown = ("art_definitely_not_in_the_db_xyz" in _o) and _c
     except Exception as e:  # noqa: BLE001  # privacy-ok: noqa linter directive, not a course code
-        orphan_unknown = f"raised {type(e).__name__}: {e}"
-    check("an id the canonical store has never seen IS an orphan",
-          orphan_unknown is True,
-          f"got {orphan_unknown!r} — if nothing is ever an orphan the sweep is disabled, and the "
-          f"procedures dir stops reflecting what is live, which is what it exists to prevent")
+        check("an id the canonical store has never seen IS an orphan", False,
+              f"raised {type(e).__name__}: {e} — _canonical_orphans is documented to fail closed, "
+              f"never to raise")
+    else:
+        if _c is False:
+            print("  SKIP  corebrain unreachable — cannot exercise the canonical YES path without a "
+                  "live DB")
+        else:
+            orphan_unknown = "art_definitely_not_in_the_db_xyz" in _o
+            check("an id the canonical store has never seen IS an orphan",
+                  orphan_unknown is True,
+                  f"got {orphan_unknown!r} — if nothing is ever an orphan the sweep is disabled, and "
+                  f"the procedures dir stops reflecting what is live, which is what it exists to "
+                  f"prevent")
 
     # --- the live case: a DB-active artifact must be protected ---------------------------------
     # Read a genuinely active id from the canonical store rather than hardcoding one, so this keeps

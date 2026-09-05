@@ -83,7 +83,7 @@ def main() -> int:
     except Exception as exc:
         print(f"  SKIP  corebrain unreachable ({exc.__class__.__name__}) — this test compares live "
               f"row counts and cannot run without it")
-        return 1
+        return 0
 
     GEN = "AND detector_version = 'learned-miner-v1' "
     EXCL = "AND excluded_reason IS NULL "

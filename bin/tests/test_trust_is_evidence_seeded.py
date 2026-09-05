@@ -48,7 +48,15 @@ spec = importlib.util.spec_from_file_location("adm", REPO / "scheduling" / "core
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 KEY, FIX = "__test-evidence-path__", "__test fix action__"
-conn = m.connect_corebrain()
+# GUARDED, NOT BARE. This test writes real rows to the shared corebrain (see the module docstring's
+# caveat #2), so on a seat with no Postgres reachable — every fresh clone, before `make setup-brain`
+# — the unguarded connect used to crash with a raw psycopg2 traceback instead of skipping cleanly.
+try:
+    conn = m.connect_corebrain()
+except Exception as exc:
+    print(f"  SKIP  corebrain unreachable ({exc.__class__.__name__}) — this test writes evidence "
+          f"rows and cannot run without a live DB")
+    sys.exit(0)
 cur = conn.cursor()
 
 

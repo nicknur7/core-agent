@@ -199,9 +199,19 @@ def main() -> int:
                     help="report every seat (needs the cross-org SELECT that T030 may close)")
     a = ap.parse_args()
 
-    from _env import connect_corebrain, get_org_id  # noqa: E402
+    from _env import connect_corebrain, describe_db_failure, get_org_id  # noqa: E402
     t = _thresholds()
-    con = connect_corebrain()
+    # GUARDED, NOT BARE. This call used to be unguarded and a missing/unreachable corebrain (every
+    # fresh clone, before `make setup-brain`) crashed with a raw psycopg2 traceback instead of the
+    # readiness report this tool exists to print. connect_or_skip() is for a close-path component
+    # that can be silently skipped; this tool's whole job is to REPORT on readiness, so it still says
+    # so on stdout (test_corpus_readiness.py's SKIP detection reads for "could not"+"corebrain" here)
+    # rather than going silent.
+    try:
+        con = connect_corebrain()
+    except Exception as exc:
+        print(f"corpus-readiness: could not reach corebrain — {describe_db_failure(exc)}")
+        return 1
     try:
         cur = con.cursor()
         own = get_org_id()

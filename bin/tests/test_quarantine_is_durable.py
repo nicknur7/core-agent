@@ -118,7 +118,7 @@ def main() -> int:
     except Exception as exc:
         print(f"  SKIP  cannot import the SI modules ({exc.__class__.__name__}: {exc})")
         shutil.rmtree(tmp, ignore_errors=True)
-        return 1
+        return 0
 
     if str(sp.STATE).startswith(str(REPO)):
         print(f"  FAIL  isolation broke — si_project.STATE is {sp.STATE}, inside the live repo. "
@@ -131,7 +131,7 @@ def main() -> int:
             sp.upsert(ORG, _spec("original message"))
         except Exception as exc:
             print(f"  SKIP  corebrain unwritable ({exc.__class__.__name__}) — this test needs a live DB")
-            return 1
+            return 0
 
         # --- durability across re-install -------------------------------------------------
         sp.quarantine(ORG, TEST_AID, "selftest: pretend the watchdog caught this misbehaving")

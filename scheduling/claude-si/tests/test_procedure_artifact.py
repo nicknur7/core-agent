@@ -214,11 +214,22 @@ check("payload moved to quarantined/, not deleted",
 print("\n=== watchdog retires orphaned payloads ===")
 inst.write_procedure("art_proc_orphan_01", BODY)
 inst._atomic_write(inst.ACTIVE, {"artifacts": []})
-r = wd.sweep(dry=True)
-check("dry sweep reports the orphan", "art_proc_orphan_01" in (r.get("orphan_payloads") or []))
-check("dry sweep does not delete", inst._procedure_path("art_proc_orphan_01").is_file())
-wd.sweep(dry=False)
-check("real sweep retires the orphan", not inst._procedure_path("art_proc_orphan_01").is_file())
+# NEEDS A LIVE CANONICAL STORE. _sweep_orphan_payloads asks Postgres (not active.json — see
+# test_orphan_sweep_asks_the_source_of_truth.py for why) whether a candidate is still live, and
+# FAILS CLOSED when it cannot reach it: nothing is retired rather than risking a wrongly-deleted
+# payload. With corebrain unreachable this section would report neither PASS nor a real defect —
+# it would report the sweep's own designed-in safety behaviour as a failure. Probe with the same
+# call the sweep makes before asserting on its outcome.
+_, _canon_checked = wd._canonical_orphans([])
+if not _canon_checked:
+    print("  SKIP  corebrain unreachable — the orphan sweep fails closed (retires nothing) without "
+          "a live canonical store to confirm against")
+else:
+    r = wd.sweep(dry=True)
+    check("dry sweep reports the orphan", "art_proc_orphan_01" in (r.get("orphan_payloads") or []))
+    check("dry sweep does not delete", inst._procedure_path("art_proc_orphan_01").is_file())
+    wd.sweep(dry=False)
+    check("real sweep retires the orphan", not inst._procedure_path("art_proc_orphan_01").is_file())
 
 print("\n=== proliferation cap ===")
 capped = [dict(_spec(aid=f"art_proc_cap_{i:04d}"), _installed_at=1)

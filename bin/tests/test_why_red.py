@@ -89,6 +89,27 @@ def main() -> int:
 
     print("=== why-red.sh: stale copy, or real defect? ===\n")
 
+    # PREFLIGHT: most of this file drives why-red.sh through its LOCAL test seam
+    # (CORE_BASELINE_URL_LOCAL_TEST) specifically so it needs no network — but the seam still shells
+    # out to a real `git clone` of that local path (why-red.sh:160), and an environment with no git
+    # transport at all (e.g. a PATH wrapper that fails clone/fetch/pull/push fast, standing in for
+    # "no network") cannot complete even a same-machine clone. Every seam-based case below would then
+    # report UNDECIDABLE for a reason that has nothing to do with why-red.sh's own logic — and the
+    # `out.split("DIFFERS")[1]`-style assertions crash outright on text that was never printed. Not a
+    # defect in the script under test: a dependency this file cannot supply here.
+    with tempfile.TemporaryDirectory() as ptd:
+        probe_src, probe_dst = Path(ptd) / "src", Path(ptd) / "dst"
+        probe_src.mkdir()
+        sh(probe_src, "git init -q . && git config user.email t@t && git config user.name t "
+                      "&& touch f && git add -A && git commit -qm probe")
+        probe = subprocess.run(["git", "clone", "-q", str(probe_src), str(probe_dst)],
+                               capture_output=True, text=True, timeout=30)
+        if probe.returncode != 0:
+            print("  SKIP  network unavailable (git clone failed): why-red.sh's stale-vs-defect "
+                  "diagnosis needs a working `git clone`, even of a local path — "
+                  f"{(probe.stderr or probe.stdout).strip()[:160]}")
+            return 0
+
     with tempfile.TemporaryDirectory() as td:
         seat, base = build(
             td,
