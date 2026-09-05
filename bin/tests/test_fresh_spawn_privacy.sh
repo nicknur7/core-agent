@@ -468,8 +468,17 @@ print(f"__HIST__={total_hits}")
 PY
 sed 's/^/      /' "$WORK/hist.out"
 hist_hits=$(grep -oE '__HIST__=[0-9]+' "$WORK/hist.out" | cut -d= -f2)
+# SCOPE (2026-09-04, operator's decision): this check is decisive only where the clone IS the
+# published template — i.e. on a seat whose own identity.json is still the placeholder. On a real,
+# private seat the baseline it clones is the operator's PRIVATE engine repo, whose history carrying
+# his own author email is the expected state, not a leak; failing every private seat forever was
+# noise that trained readers to ignore this file. Rewriting that history (filter-repo + force-push
+# to a baseline a fork has already pulled) was considered and declined.
+seat_name=$(jq -r '.user.name // ""' "$REPO/.claude/identity.json" 2>/dev/null || echo "")
 if [[ "${hist_hits:-1}" == "0" ]]; then
   pass "7. no currently-shipped file's history ever carried the author's email/homedir (scoped pickaxe search)"
+elif [[ -n "$seat_name" && "$seat_name" != YOUR_* ]]; then
+  echo "  SKIP  7. history carries the operator's email in $hist_hits commit(s) — expected on a private seat ($seat_name); decisive only on the published template"
 else
   fail "7. no currently-shipped file's history ever carried the author's email/homedir" \
     "$hist_hits commit(s) above — history is public; report only, no rewrite performed"

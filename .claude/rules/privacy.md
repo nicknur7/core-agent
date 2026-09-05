@@ -35,13 +35,13 @@ point at one of them, so a brief written from these rules handed the reviewer a 
 minter does not honour; the reviewer complies, and the receipt falls through to the transitional
 prose fallback.
 
-**State as of 2026-07-29 — partial, deliberately:**
+**State as of 2026-09-04 (was partial from 2026-07-29 to 2026-09-04):**
 
 | dir-form spec | baseline | why |
 |---|---|---|
 | close-reconciler dir-form spec (retired — on no seat's disk) | **removed from the baseline — but see below** | a baseline `git rm` retires it THERE and nowhere else |
-| `.claude/agents/sentinel/CLAUDE.md` (baseline-only) | **still present** | `per_core_keep` + trust-root; removing it from the baseline needs the operator's explicit confirmation |
-| `.claude/agents/sentinel-code/CLAUDE.md` (baseline-only) | **still present** | same |
+| sentinel dir-form spec (agents/sentinel/, CLAUDE.md inside) | **tombstoned 2026-09-04** | operator confirmed; the dir glob left `per_core_keep` and the path is in `retired[]`, so every seat deletes it on pull |
+| sentinel-code dir-form spec (agents/sentinel-code/, CLAUDE.md inside) | **tombstoned 2026-09-04** | same |
 
 **This table has been wrong twice**, both times a shared rule asserting a fleet state true only
 locally, caught by a peer on the pull. Verify on a fresh PULLER or trust

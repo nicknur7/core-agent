@@ -80,8 +80,10 @@ def is_per_core(rel: str) -> bool:
 # itself: three that per_core_keep names explicitly and three that no reading of the manifest makes
 # per-Core. If either column moves, the classifier changed and every verdict below is about a
 # different set of files.
+# 2026-09-04: the dir-form `sentinel/CLAUDE.md` left this control when it was tombstoned; the
+# writer's Rule 5 fixture is per_core_keep BY NAME and pins the same property.
 _MUST_NOT_BE_SHARED = [".claude/agents/sentinel.md",
-                       ".claude/agents/sentinel/CLAUDE.md",
+                       ".claude/agents/sentinel/test-rule5.md",
                        ".claude/agents/sentinel-code.md"]
 _MUST_BE_SHARED = [".claude/agents/close-reconciler.md",
                    ".claude/rules/privacy.md",

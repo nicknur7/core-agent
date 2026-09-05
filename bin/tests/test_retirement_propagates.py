@@ -110,7 +110,10 @@ def main() -> int:
 
     # And prove the matcher is actually glob-aware, rather than passing because nothing collides.
     # Every one of these is a real file a future tombstone could plausibly name.
-    must_refuse = [".claude/agents/sentinel/CLAUDE.md", "secrets/keys.json",
+    # 2026-09-04: `.claude/agents/sentinel/CLAUDE.md` left this list when its glob left per_core_keep
+    # and it was tombstoned (the dir-form spec never loaded). The property under test is the glob
+    # walk, not that file; `tasks/lessons.md` sits under `tasks/**` and always will.
+    must_refuse = ["tasks/lessons.md", "secrets/keys.json",
                    "memory/current-state.md", "sessions/2026-08-13.md"]
     unprotected = [p for p in must_refuse if not protected(p)]
     check("glob entries protect the FILES UNDER them, not just the literal pattern",

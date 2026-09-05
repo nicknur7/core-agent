@@ -48,8 +48,8 @@
           "reason": "the dir-form paths appear in a TABLE that documents which specs still exist and explicitly instructs the reader NOT to cite them — the opposite of a citation. Declared here, in the item set inside the TCB fence, because an in-file marker would be controlled by the thing being graded. SCOPED TO THESE LINES (core-business, bus #1036): a file-level exemption is inherited by anything added to the file later, and this marker sits on line 1 so it blanketed the whole file. The reason is a property of the table rows, so the rows are what is declared.",
           "lines": [
             "| close-reconciler dir-form spec (retired — on no seat's disk) | **removed from the baseline — but see below** | a baseline `git rm` retires it THERE and nowhere else |",
-            "| `.claude/agents/sentinel/CLAUDE.md` (baseline-only) | **still present** | `per_core_keep` + trust-root; removing it from the baseline needs the operator's explicit confirmation |",
-            "| `.claude/agents/sentinel-code/CLAUDE.md` (baseline-only) | **still present** | same |"
+            "| sentinel dir-form spec (agents/sentinel/, CLAUDE.md inside) | **tombstoned 2026-09-04** | operator confirmed; the dir glob left `per_core_keep` and the path is in `retired[]`, so every seat deletes it on pull |",
+            "| sentinel-code dir-form spec (agents/sentinel-code/, CLAUDE.md inside) | **tombstoned 2026-09-04** | same |"
           ]
         }
       ],
