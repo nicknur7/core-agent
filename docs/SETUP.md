@@ -106,13 +106,14 @@ That's it. Open a Claude Code session in this directory and the system is live.
 
 This is the part that makes the architecture map *true* from day one:
 
-- **Blockers are live immediately.** `learned-validator`, `learned-recallguard`,
-  and `learned-stopguard` are regex-only — they need no history. They start
+- **Blockers are live immediately.** `learned-validator` and `learned-stopguard`
+  are regex-only — they need no history. They start
   catching the universal failures (ignoring a stop signal, paraphrasing instead of
   recalling, editing before acknowledging) the moment you finish step 3.
 - **The classifier is live from install, via a generalized starter set.** The
-  installer seeds six universal contracts — stop-and-plan, verify-don't-claim,
-  recall-first, plan-not-execute, model-routing, frustration-deescalate — so the
+  installer seeds seven universal contracts — stop-and-plan, verify-don't-claim,
+  recall-first, plan-not-execute, model-routing, frustration-deescalate,
+  verify-claim-adversarially — and five starter skills into `.claude/skills/`, so the
   classifier steers responses on day one. As you correct the assistant, the corpus
   grows at every session close; re-synthesize to replace the generic starter with
   contracts tailored to *you* (`scheduling/claude-si/learned-corpus-miner.py` +

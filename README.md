@@ -146,7 +146,10 @@ The rules are not hand-written and left alone. They go round a measured loop:
 
 ```
 you correct Claude                          all under scheduling/claude-si/ unless noted
-  → the violation is recorded on the real final text ......... .claude/hooks/reply-observer.py
+  → at close, the session transcript is scanned for
+    correction-shaped turns → pattern_observations ........... learned-corpus-miner.py
+    (separately, Claude's OWN replies are watched for time-,
+     state- and say-do violations, every turn) ............... .claude/hooks/reply-observer.py
   → (prompt, response, correction) rebuilt from the transcript  friction_miner.py
   → the recurring ask is distilled, frustration stripped out .. ask_miner.py
   → typed, and given a CONJUNCTIVE trigger: two distinctive
@@ -179,6 +182,76 @@ reachable, calling it "defense in depth, not a sandbox."
 **A brand-new Core refuses to install anything** until it has roughly 40 of your own prompts to test against
 (`friction_test_gate.MIN_CORPUS`) — the safety property, not a defect. It will not learn from you before it has
 watched you work.
+
+## How it learns — the whole package, in the order it happens to you
+
+Everything below ships in this repo and runs on its own. The only inputs are your prompts and your corrections.
+
+**Day one, first prompt.** 30 hooks are registered across 17 lifecycle events. Two things fire before you have any
+history: the **starter contracts** — seven generalised rules (verify before claiming, plan before executing,
+recall before answering, stop-and-plan on a redirect, model routing, frustration de-escalation, verify a claim
+adversarially) that `.claude/hooks/learned-classifier.py` injects into the prompt when it matches
+(`📋 LEARNED CONTRACT matched — shape your response accordingly: DO … / DON'T …`) — and the **starter skills**,
+five `.claude/skills/<name>/` directories the installer copies in, each one a skill the loop promoted on the
+reference seat. `reply-observer.py` starts watching Claude's own replies for time-claims, state-claims and
+promise-without-action from the first turn. Every other mechanism is a harmless no-op until it has data.
+
+**Every session close (`/close-core`, runbook in [`.claude/commands/close-core.md`](.claude/commands/close-core.md)).**
+Deterministic steps always run: session duration, git auto-commit, capabilities inventory, close receipt. The brain
+steps run when Postgres and the vault exist and *skip by name* when they don't (`CONSOLIDATE: skipped (no
+database)`) — a close never dies on a missing dependency. A few steps need the model, in-session: the reconciler
+subagent, the narrative, and — only when there is a backlog — graph extraction, assertion extraction and ask
+distillation. Hub refresh above 8 drifted hubs or about $1 of spend stops and asks you first. Then
+`bin/core-si-close.py` runs the learning loop itself (next paragraph), unconditionally, at every close.
+
+**Corrections become rules.** `learned-corpus-miner.py` scans the session transcript for correction-shaped turns
+into Postgres `pattern_observations`. `ask_miner.py` distils each into a canonical ask — the one model call in the
+pipeline, in-session at close (or unattended overnight by `bin/si-drain.sh`, which runs the model read-only and
+performs every write itself). Once an ask has recurred **3 times across 2 sessions** and the corpus holds **40 of
+your real prompts**, a fully deterministic chain — `friction_router` → `artifact_typer` → `artifact_generator` →
+`friction_installer` — mints an artifact into `.claude/state/friction-artifacts/active.json`. No model writes
+executable anything; artifacts are JSON-filled from `scheduling/claude-si/templates/enforcement-templates.json`. Types: an **inject
+contract** (default), an **enforcement block**, a **hooked skill**, a **CLAUDE.md directive**, a **slash command**,
+or a **workflow**. Caps per run: 5 contracts, 1 blocker.
+
+**Rules fire on their own.** `.claude/hooks/friction-dispatch.py` (UserPromptSubmit, PreToolUse, Stop) evaluates every
+active artifact's condition tree — prompt regex, tool name, tool mutability — and on a match injects the
+artifact's message as context, or refuses the tool call. Each artifact fires at most N times per session (default
+1). Blocks are born in **shadow** mode: they log what they would have refused, and only start refusing after
+**5 fires across 3 sessions over 7 days** of proof (`friction_promote.py`, at close). A rule whose guarded
+behaviour does not actually decline is retired on its own evidence (`friction_watchdog.py`,
+`measure-contract-fitness.py`, `bin/steering-retire.py`).
+
+**Hooked skills become real skills.** A hooked-skill artifact carries a procedure body and fires it into context when
+its trigger matches. When it has earned **5 fires / 3 sessions / 7 days**, `skill_graduate.py` (at close) writes it
+out as a real `.claude/skills/<name>/SKILL.md` — a native Claude Code skill, marked with the artifact that produced
+it — and demotes it automatically if it stops being used. Delete the marker comment in a generated SKILL.md and it
+becomes hand-authored and permanently exempt. That is exactly how the five starter skills came to exist.
+
+**Workflows.** Two kinds. A hash-pinned catalog of authored Workflow-tool scripts
+(`scheduling/claude-si/workflow-catalog/`, one today: a three-agent adversarial review) is offered as a
+`/slash-command` when a mined case matches its signals. And behavioural sequences you repeat — **2+ steps across
+2+ sessions**, mined from the brain at close by `friction_loop.generate_from_workflows` — are installed as hooked
+skills so the sequence is offered next time the situation recurs.
+
+**CLAUDE.md edits.** One thing writes to your `CLAUDE.md` automatically: at close, a mined directive that has proven
+itself — the correction rate it targets is falling, its trigger is live, and the always-loaded steering budget has
+headroom — is appended to a section headed `## Auto-generated standing directives`. You will see lines appear there.
+Edit or delete them freely; the loop never rewrites what you touched. Everything else that manages steering text
+(`bin/steering-compress.py`, `bin/steering-retire.py`, `scheduling/core-si/lessons-evict.py`) proposes by default and
+only acts under `--apply`. The whole always-loaded set is held under a token ratchet
+(`bin/tests/test_steering_budget.py`): adding steering prose requires deleting steering prose.
+
+**Grading the loop itself.** `eval/casebook-v1.json` holds 13 failure-mode items with predicates;
+`bin/casebook-run.py` scores the repo and past transcripts against them (a monitor, not a gate), and
+`bin/trajectory-gate.py` can KEEP or REVERT a candidate change by re-executing from a frozen trusted checkout so a
+change cannot grade itself. Both are manual tools, exercised by the test suite; `--promote` of a trust root is
+guard-gated.
+
+**What a fresh Core does not do yet, on purpose.** Nothing mints until you have about 40 prompts and a correction
+that has recurred. Workflows need repeated sequences. Skills need fired procedures. The starter contracts and
+starter skills are the floor; everything above it is learned from you, and it will not learn from you before it has
+watched you work. `export LEARNED_LAYER=0` turns the entire layer off.
 
 ## What the loop has actually done
 
@@ -294,6 +367,9 @@ forge a diff and a rationale; it cannot forge your confirmation.
 | [docs/architecture/](./docs/architecture/) | clickable system architecture map |
 | [docs/si-track-record.md](./docs/si-track-record.md) | what the self-improvement loop has actually done |
 | [bin/verdict-contract.md](./bin/verdict-contract.md) | the Sentinel verdict protocol, and the forgeries that shaped it |
+| [.claude/commands/close-core.md](./.claude/commands/close-core.md) | the session-close runbook — every step, what needs the model, what skips without a brain |
+| [eval/casebook-v1.json](./eval/casebook-v1.json) · [bin/casebook-run.py](./bin/casebook-run.py) | the 13 failure modes the loop is graded against, and the monitor that scores them |
+| [bin/trajectory-gate.py](./bin/trajectory-gate.py) | keep-or-revert a change by re-executing from a frozen trusted checkout |
 
 ## Contributing
 
